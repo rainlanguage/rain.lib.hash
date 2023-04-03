@@ -331,6 +331,7 @@ assembly ("memory-safe") {
         mul(mload(bar_), 0x20)
     )
 }
+```
 
 Note that here we DO NOT include the length prefix in the bytes that we hash.
 
@@ -367,7 +368,98 @@ assembly ("memory-safe") {
         mload(baz_)
     )
 }
+```
 
 Note that pointers never appear in `bytes` nor `string`, or if they do, they are
 not going to be dereferenced by our hashing logic. This assembly above is all
 that is needed to hash `bytes` and `string` types.
+
+#### Handling pointers
+
+It would be pointless to hash pointers (no pun intended). A pointer is merely an
+offset in memory, which has very little to do with the data on the other side of
+it, and is not even deterministic.
+
+We find pointers in Solidity wherever something that is potentially larger than
+1 word needs to fit in a single word slot. For example, any time a struct or
+dynamic type is an item or field in another struct or dynamic type.
+
+Solidity does not allow mixed type lists so all pointers are at least found in
+predictable positions. We always know at compile time whether something is a
+pointer or not, either because it's a field at a known offset, or we are dealing
+with an individual or list or pointers directly.
+
+To reliably handle pointers without allocations:
+
+- Compute the hash of all data up to the pointer
+- Compute the hash of all data referenced by the pointer
+- Hash these two hashes together
+
+Using our `Foo` struct from above as an example this would look like:
+
+- Hash the first two words as a contigious memory region of known size as `A`
+- Hash the dynamic word list `foo_.c` as `B`
+- Write `A` and `B` to scratch space at `0` and `0x20` respectively
+- Hash the scratch space to produce `C`
+- Hash the bytes `foo_.d` as `D`
+- Write `C` and `D` to scratch space as above
+- Hash the scratch space to produce `E`, which is our final hash of `Foo`
+
+As assembly it would look like
+
+```solidity
+assembly ("memory-safe") {
+    // hash foo_.a and foo_.b together to produce hash A
+    // store A in scratch
+    mstore(0, keccak256(foo_, add(foo_, 0x40)))
+
+    // Follow the pointer to hash foo_.c into B
+    let deref_ := mload(add(foo_, 0x60))
+    // Store B in scratch
+    mstore(0x20, keccak256(add(deref_, 0x20), mul(mload(deref_), 0x20)))
+
+    // Hash A and B to produce C which can be stored direct in scratch
+    mstore(0, keccak256(0, 0x40))
+
+    // Follow the pointer to hash foo_.d
+    deref_ := mload(add(foo_, 0x80))
+    // Store D in scratch
+    mstore(0x20, keccak256(add(deref_, 0x20), mload(deref_)))
+
+    // Write C and D to scratch to produce the final hash E
+    let E := keccak256(0, 0x40)
+}
+```
+
+If we had a list of pointers, such as a `Foo[]` then this would be modelled as
+a simple fold/reduce style accumulator where each item is hashed as above
+individually then hashed into the accumulator. I.e. Hash `foos_[0]` to hash A,
+then hash `foos_[1]` to hash B, then write both to scratch and hash to produce C,
+then hash `foos_[2]` to hash D, and hash C and D to produce E, etc.
+
+This process of iterating and accumulating a hash incrementally seems to be about
+40% cheaper in gas terms than ABI encoding then hashing, based on some simple
+testing with Foundry.
+
+#### Security of composition
+
+Assume that we're comfortable with concepts like blockchains and merkle trees,
+that rely on hashes of hashes to iteratively build a single hash out of a system
+of hashes.
+
+We need to convince ourselves that the hashing process above is unambiguous for
+all permutations.
+
+This relies on us accepting that `hash(hash(a) + hash(b))` will not collide with
+`hash(hash(c) + hash(d))` for all values of `a`, `b`, `c`, `d` except the trivial
+case where `a` = `c` and `b` = `d`.
+
+As long as `hash(x)` and `hash(x) + hash(y)` don't produce collisions then this
+is true. This guarantee seems to come down to the strength of `keccak256` itself.
+
+As `keccak256` always produces hashes exactly 32 bytes long for all inputs, we avoid
+all the issues seen with both including and excluding length prefixes, such as
+those seen in `abi.encodePacked`.
+
+I'm not sure this constitutes a formal mathematical proof, but I'm not sure if
+one exists for `abi.encode` either :)

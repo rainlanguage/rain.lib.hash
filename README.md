@@ -10,12 +10,63 @@ common suggestions look something like `keccak256(abi.encode(...))` or
 does not provide an "any type" `keccak256` function but does provide one (almost)
 for abi encoding.
 
+When I say "common suggestion" I mean literally the compiler itself gives outputs
+like this for any type other than `bytes`.
+
+```
+➜ keccak256(address(0))
+Compiler errors:
+error[7556]: TypeError: Invalid type for argument in function call. Invalid implicit conversion from address to bytes memory requested. This function requires a single bytes argument. Use abi.encodePacked(...) to obtain the pre-0.5.0 behaviour or abi.encode(...) to use ABI encoding.
+  --> ReplContract.sol:14:19:
+   |
+14 |         keccak256(address(0));
+```
+
 This approach raises two questions for me:
 
 - Why are we relying on interface encodings to satisfy cryptographic properties?
 - Encoding requires complex recursive/nested data processing, memory expansion,
   and making more than a full copy of the data to include headers, is that
   significant gas cost strictly necessary?
+
+### Non goals
+
+For the purpose of this document we are NOT attempting any specific compatibility
+with external systems or standards, etc.
+
+The basic use case is that we are writing contracts that need to convince
+themselves that they should authorize some state change.
+
+Often we find ourselves with a lot of state that informs the authorization
+verification logic. Too much to store, sign, etc. so first we want to
+"hash the data" and just store, compare, sign the hash.
+
+It doesn't really matter in this case what the hashing algorithm is, as long as
+it gives us the security guarantees that the contract needs. If the hash is
+needed to be known offchain, e.g. so it can be passed back to a future call on
+the contract, then the contract can emit the hash into the logs etc.
+
+We are even fine with changing the patterns described in this document over time.
+There's no requirement that a hash produced by one contract is compatible with
+the hash produced by another. Our goal is that contracts implementing these
+patterns can securely accept arbitrary inputs, NOT that the basic approach
+ossifies due to unrelated contracts doing different things to each other.
+
+**That is to say, there's no "upgradeable contract" support.**
+
+Further, while we do want to be able to support "any" data type in our pattern,
+we do NOT need to support "every" data type in our implementations. It may be
+relatively onerous to implement and maintain the required assembly logic to
+safely hash some structure, relative to just slapping an abi encoding on the
+problem and walking away. The intention is that this work would only be needed
+for maybe 1 or 2 structs within a codebase, because there wouldn't be a large
+variety of security sensitive hashing to be done for some given contract/context.
+
+It's also assumed that, because these structs are used on the critical security
+path, there would be good reasons to design them for stability and simplicity
+already. In this case, the maintainability concerns that always arise when
+handling structs in assembly (adding/removing/reordering fields!) are naturally
+less of a concern due to their context/usage.
 
 ### Encoding and cryptography
 
@@ -134,13 +185,13 @@ The Solidity type system can definitely make a lot of this more efficient,
 especially the traversal bit, by generating the traversal process at compile time
 but it can't hand wave away the need for allocating and copying.
 
-Typically, my experience has shown that if some algorithm `f(x)` is implemented
+**Typically, my experience has shown that if some algorithm `f(x)` is implemented
 in a functionally equivalent way, where one implementation internally encodes `x`
-and another avoids it, the no-encode solution often costs 40-80%+ less gas. This
-saving is of course most noticeable when the algorithm is relatively efficient,
-or involves a tight internal loop over encoding, such that the encoding then
-starts to dominate the profile. Even in cases where that is not true, such as
-comparing the reference SSTORE2 implementation to
+and another avoids it, the no-encode solution often costs 40-80%+ less gas.**
+This saving is of course most noticeable when the algorithm is relatively
+efficient, or involves a tight internal loop over encoding, such that the
+encoding then starts to dominate the profile. Even in cases where that is not
+true, such as comparing the reference SSTORE2 implementation to
 [LibDataContract](https://github.com/rainprotocol/sol.lib.datacontract/blob/main/src/LibDataContract.sol) we still can see 1k+ gas savings per-write for common usage patterns, with
 identical outcomes.
 
@@ -159,57 +210,164 @@ What perhaps is the "fault" of Solidity is that they don't implement `keecak256`
 for any type other than `bytes` so we are forced to go all the way to Yul and
 write assembly the moment we want to do anything other than `abi.encode`.
 
+## Solution
 
+- Define a pattern to hash any Solidity data structure without allocation and
+  minimal memory reads/writes, and is generally efficient
+- Convince ourselves the pattern is unambiguous/secure, being both deterministic
+  and injective
+- Provide a reference implementation of the pattern that can be fuzzed against
+  to show inline implementations of the pattern provide valid outputs
 
-Consider that `hash(hash("abc") + hash("def"))` won't collide with
-`hash(hash("ab") + hash("cdef"))`. It should be easier to convince ourselves
-this is true for all possible pairs of byte strings than it is to convince
-ourselves that the ABI serialization is never ambigious. Inductively we can
-scale this to all possible data structures that are ordered compositions of
-byte strings. Even better, the native behaviour of `keccak256` in the EVM
-requires no additional allocation of memory. Worst case scenario is that we
-want to hash several hashes together like `hash(hash0, hash1, ...)`, in which
-case we can write the words after the free memory pointer, hash them, but
-leave the pointer. This way we pay for memory expansion but can re-use that
-region of memory for subsequent logic, which may effectively make the
-expansion free as we would have needed to pay for it anyway. Given that hash
-checks often occur early in real world logic due to
-checks-effects-interactions, this is not an unreasonable assumption to call
-this kind of expansion "no alloc".
+### The pattern
 
-One problem is that the gas saving for trivial abi encoding,
-e.g. ~1-3 uint256 values, can be lost by the overhead of jumps and stack
-manipulation due to function calls.
+The memory layout of data in Solidity is very regular across all data types.
 
-```
+https://docs.soliditylang.org/en/v0.8.19/internals/layout_in_memory.html
+
+It is optimised so that the allocator always has the free memory pointer at a
+multiple of 32.
+
+Note that the memory layout is completely different to e.g. the storage layout.
+Everything discussed here is specific to data in memory and does not generalise
+at all.
+
+All non-struct types end up in one of 3 buckets:
+
+- 1 or more 32 byte words, of `length` defined by the type
+- A 32 byte `length` followed by `length` 32 byte words (most dynamic types)
+- A 32 byte `length` followed by `length` bytes (`bytes` and `string` only)
+
+Note that in the last case, the allocator will still move the free memory pointer
+to a multiple of 32 bytes even if that points past the end of the data structure.
+
+The variables and structs that reference these things are pointers to them, or
+even nested pointers in the case of structs. The pointers can be either on the
+stack or in memory, depending on context.
+
+Consider the struct
+
+```solidity
 struct Foo {
-  uint256 a;
-  address b;
-  uint32 c;
+    uint256 a;
+    address b;
+    uint256[] c;
+    bytes d;
 }
 ```
 
-The simplest way to hash `Foo` is to just hash it (crazy, i know!).
+If we had some `foo_` such that `Foo memory foo_ = Foo(...);` then `foo_` will
+be a pointer, either on the stack or in memory, depending on compiler
+optimisations.
 
-```
+The thing it points to falls into the first bucket, a 4-word region of memory
+defined by its type. This may not be intuitive but all of `uint256`, `address`,
+`uint256[]` and `bytes`, and all other types, are all a full singular word in
+the struct.
+
+Any types that are smaller than 1 word are padded with 0's such that they retain
+the same `uint256` equivalent value.
+
+Any types that are larger, or potentially larger than 1 word are pointers to that
+data, from the perspective of the struct.
+
+This logic is applied recursively.
+
+This means that structs are NOT dynamic length, regardless of how nested or how
+many dynamic types appear in their definition, or the definitions of types within
+their fields. For example, a `Foo` is ALWAYS 4 words, i.e. 0x80 bytes long.
+
+Given the above, we can
+
+- Define a pattern for hashing each of the 3 possible memory layouts
+- Explain how to handle pointers across non-contigous regions of memory
+- Discuss the security of the composition
+- Provide a guide for implementation, maintenance and quality assurance
+
+#### Hashing contigious words
+
+In all cases where the size of the data is a known number of words at compile
+time we are free to simply hash the known memory region.
+
+For example, we could hash a `foo_` as above like so
+
+```solidity
 assembly ("memory-safe") {
-  hash_ := keccak256(foo_, 0x60)
+    let hash_ := keccak256(foo_, add(foo_, 0x80))
 }
 ```
 
-Every struct field is 0x20 bytes in memory so 3 fields = 0x60 bytes to hash
-always, with the exception of dynamic types. This costs about 70 gas vs.
-about 350 gas for an abi encoding based approach.
-library LibHashNoAlloc {
-    function hash(bytes memory data_) internal pure returns (bytes32 hash_) {
-        assembly ("memory-safe") {
-            hash_ := keccak256(add(data_, 0x20), mload(data_))
-        }
-    }
+Ignore for now that `c` and `d` are pointers, as that will be discussed later in
+this document.
 
-    function hash(uint256[] memory array_) internal pure returns (bytes32 hash_) {
-        assembly ("memory-safe") {
-            hash_ := keccak256(add(array_, 0x20), mul(mload(array_), 0x20))
-        }
-    }
+The basic point is that the code example shows that Yul handles what we need
+for known memory regions very naturally.
+
+Other than implementation bugs, there's no potential for
+
+- Collisions
+- Including data what we did not intend to in the hash input
+- Failing to include some part of the struct
+
+Because the size of the data never changes, we can just hardcode it per-type.
+
+#### Hashing dynamic length list of words
+
+Most dynamic length types in Solidity are a list of 32 byte words. This includes
+lists of pointers like `Foo[]`, single byte values `bytes1[]`, etc.
+
+The ONLY exceptions to the rule are `bytes` and `string` types.
+
+Again, ignoring pointers for now, we can hash any dynamic length word list as
+
+```solidity
+assembly ("memory-safe") {
+    // Assume bar_ is some dynamic length list of words
+    let hash_ := keccak256(
+        // Skip the length prefix
+        add(bar_, 0x20),
+        // Read the length prefix and multiply by 0x20 to know how many _words_
+        // to hash
+        mul(mload(bar_), 0x20)
+    )
 }
+
+Note that here we DO NOT include the length prefix in the bytes that we hash.
+
+This gives us the same behaviour as the case of hashing static length data, but
+with lengths known only at runtime.
+
+When it comes to composition we do not want to rely on length prefixes for safety
+guarantees, as they are not always available. As EIP712 explained, length
+prefixes can introduce ambiguity as easily as they can resolve them as in the
+case of packed encoding. Ideally we can show security without the need for any
+additional metadata about our words.
+
+#### Hashing dynamic length byte strings
+
+The two byte length types `bytes` and `string` are the only types in Solidity
+that may not have whole-world lengths. Even though the allocator retains a
+multiple of 0x20 on the free memory pointer, we MUST respect the true length of
+`bytes` and `string` in bytes, otherwise we introduce ambiguity.
+
+If we did not respect the length then `hex"01"` and `hex"0100"` would hash to
+the same value, as they both have 0x20 bytes _allocated_ to them in memory, even
+though the first is 1 byte and the second is 2 bytes in _length_.
+
+The assembly for this is actually simpler than dealing with words as we do not
+need to convert between length/bytes. It is the same for `string` and `bytes`.
+
+```solidity
+assembly ("memory-safe") {
+    // Assume baz_ is some bytes/string
+    let hash_ := keccak256(
+        // Skip the length prefix
+        add(baz_, 0x20),
+        // Read the length prefix to know how many _bytes_ to hash
+        mload(baz_)
+    )
+}
+
+Note that pointers never appear in `bytes` nor `string`, or if they do, they are
+not going to be dereferenced by our hashing logic. This assembly above is all
+that is needed to hash `bytes` and `string` types.

@@ -12,28 +12,16 @@ contract LibHashNoAllocTest is Test {
         assembly ("memory-safe") {
             hashNil_ := keccak256(0, 0)
         }
-        assertEq(
-            HASH_NIL,
-            hashNil_
-        );
-        assertEq(
-            HASH_NIL,
-            keccak256("")
-        );
+        assertEq(HASH_NIL, hashNil_);
+        assertEq(HASH_NIL, keccak256(""));
     }
 
     function testHashBytes(bytes memory bytes_) public {
-        assertEq(
-            LibHashNoAlloc.hashBytes(bytes_),
-            LibHashSlow.hashBytesSlow(bytes_)
-        );
+        assertEq(LibHashNoAlloc.hashBytes(bytes_), LibHashSlow.hashBytesSlow(bytes_));
     }
 
     function testHashBytesEmpty() public {
-        assertEq(
-            LibHashNoAlloc.hashBytes(""),
-            HASH_NIL
-        );
+        assertEq(LibHashNoAlloc.hashBytes(""), HASH_NIL);
     }
 
     function testHashBytesGas0() public pure {
@@ -53,17 +41,11 @@ contract LibHashNoAllocTest is Test {
     }
 
     function testHashWords(bytes32[] memory words_) public {
-        assertEq(
-            LibHashNoAlloc.hashWords(words_),
-            LibHashSlow.hashWordsSlow(words_)
-        );
+        assertEq(LibHashNoAlloc.hashWords(words_), LibHashSlow.hashWordsSlow(words_));
     }
 
     function testHashWordsEmpty() public {
-        assertEq(
-            LibHashNoAlloc.hashWords(new bytes32[](0)),
-            HASH_NIL
-        );
+        assertEq(LibHashNoAlloc.hashWords(new bytes32[](0)), HASH_NIL);
     }
 
     function testHashWordsGas0() public pure {
@@ -83,10 +65,7 @@ contract LibHashNoAllocTest is Test {
     }
 
     function testCombineHashes(bytes32 a_, bytes32 b_) public {
-        assertEq(
-            LibHashNoAlloc.combineHashes(a_, b_),
-            LibHashSlow.combineHashesSlow(a_, b_)
-        );
+        assertEq(LibHashNoAlloc.combineHashes(a_, b_), LibHashSlow.combineHashesSlow(a_, b_));
     }
 
     function testCombineHashesGas0() public pure {

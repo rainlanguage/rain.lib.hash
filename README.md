@@ -441,6 +441,14 @@ This process of iterating and accumulating a hash incrementally seems to be abou
 40% cheaper in gas terms than ABI encoding then hashing, based on some simple
 testing with Foundry.
 
+##### Nil hash prefix
+
+If we are handling a pointer and have no hash, e.g. we're directly hashing an
+array of pointers, we start with the hash of nil bytes, i.e. `keccak256(0, 0)`.
+
+If the array is 0 length then the hash will be the nil hash, regardless of the
+type behind the pointers.
+
 #### Security of composition
 
 Assume that we're comfortable with concepts like blockchains and merkle trees,

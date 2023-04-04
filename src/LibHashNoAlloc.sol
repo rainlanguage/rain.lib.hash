@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: CAL
 pragma solidity ^0.8.18;
 
+bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
+
 /// @title LibHashNoAlloc
 /// @notice When producing hashes of just about anything that isn't already bytes
 /// the common suggestions look something like `keccak256(abi.encode(...))` or

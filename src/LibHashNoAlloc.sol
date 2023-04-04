@@ -62,15 +62,23 @@ pragma solidity ^0.8.18;
 /// always, with the exception of dynamic types. This costs about 70 gas vs.
 /// about 350 gas for an abi encoding based approach.
 library LibHashNoAlloc {
-    function hash(bytes memory data_) internal pure returns (bytes32 hash_) {
+    function hashBytes(bytes memory data_) internal pure returns (bytes32 hash_) {
         assembly ("memory-safe") {
             hash_ := keccak256(add(data_, 0x20), mload(data_))
         }
     }
 
-    function hash(uint256[] memory array_) internal pure returns (bytes32 hash_) {
+    function hashWords(bytes32[] memory array_) internal pure returns (bytes32 hash_) {
         assembly ("memory-safe") {
             hash_ := keccak256(add(array_, 0x20), mul(mload(array_), 0x20))
+        }
+    }
+
+    function combineHashes(bytes32 a_, bytes32 b_) internal pure returns (bytes32 hash_) {
+        assembly ("memory-safe") {
+            mstore(0, a_)
+            mstore(0x20, b_)
+            hash_ := keccak256(0, 0x40)
         }
     }
 }

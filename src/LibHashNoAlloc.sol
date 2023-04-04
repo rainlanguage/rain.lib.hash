@@ -70,9 +70,9 @@ library LibHashNoAlloc {
         }
     }
 
-    function hashWords(bytes32[] memory array_) internal pure returns (bytes32 hash_) {
+    function hashWords(bytes32[] memory words_) internal pure returns (bytes32 hash_) {
         assembly ("memory-safe") {
-            hash_ := keccak256(add(array_, 0x20), mul(mload(array_), 0x20))
+            hash_ := keccak256(add(words_, 0x20), mul(mload(words_), 0x20))
         }
     }
 

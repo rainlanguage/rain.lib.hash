@@ -2,7 +2,6 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/Test.sol";
-
 import "../src/LibHashNoAlloc.sol";
 import "./LibHashSlow.sol";
 
@@ -41,6 +40,10 @@ contract LibHashNoAllocTest is Test {
     }
 
     function testHashWords(bytes32[] memory words_) public {
+        assertEq(LibHashNoAlloc.hashWords(words_), LibHashSlow.hashWordsSlow(words_));
+    }
+
+    function testHashWordsUint256(uint256[] memory words_) public {
         assertEq(LibHashNoAlloc.hashWords(words_), LibHashSlow.hashWordsSlow(words_));
     }
 

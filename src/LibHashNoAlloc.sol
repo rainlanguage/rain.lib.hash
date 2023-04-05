@@ -76,6 +76,12 @@ library LibHashNoAlloc {
         }
     }
 
+    function hashWords(uint256[] memory words_) internal pure returns (bytes32 hash_) {
+        assembly ("memory-safe") {
+            hash_ := keccak256(add(words_, 0x20), mul(mload(words_), 0x20))
+        }
+    }
+
     function combineHashes(bytes32 a_, bytes32 b_) internal pure returns (bytes32 hash_) {
         assembly ("memory-safe") {
             mstore(0, a_)

@@ -10,6 +10,10 @@ library LibHashSlow {
         return keccak256(abi.encodePacked(words_));
     }
 
+    function hashWordsSlow(uint256[] memory words_) internal pure returns (bytes32 hash_) {
+        return keccak256(abi.encodePacked(words_));
+    }
+
     function combineHashesSlow(bytes32 a_, bytes32 b_) internal pure returns (bytes32 hash_) {
         return keccak256(abi.encodePacked(a_, b_));
     }

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.25;
 
+/// @dev The keccak256 hash of the empty byte string, i.e. hash of no data.
 bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
 
 /// @title LibHashNoAlloc
@@ -65,29 +66,42 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 /// always, with the exception of dynamic types. This costs about 70 gas vs.
 /// about 350 gas for an abi encoding based approach.
 library LibHashNoAlloc {
-    function hashBytes(bytes memory data_) internal pure returns (bytes32 hash_) {
+    /// Hash bytes without allocating memory.
+    /// @param data The bytes to hash.
+    /// @return hash The keccak256 hash of the bytes.
+    function hashBytes(bytes memory data) internal pure returns (bytes32 hash) {
         assembly ("memory-safe") {
-            hash_ := keccak256(add(data_, 0x20), mload(data_))
+            hash := keccak256(add(data, 0x20), mload(data))
         }
     }
 
-    function hashWords(bytes32[] memory words_) internal pure returns (bytes32 hash_) {
+    /// Hash an array of bytes32 words without allocating memory.
+    /// @param words The words to hash.
+    /// @return hash The keccak256 hash of the words.
+    function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
         assembly ("memory-safe") {
-            hash_ := keccak256(add(words_, 0x20), mul(mload(words_), 0x20))
+            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))
         }
     }
 
-    function hashWords(uint256[] memory words_) internal pure returns (bytes32 hash_) {
+    /// Hash an array of uint256 words without allocating memory.
+    /// @param words The words to hash.
+    /// @return hash The keccak256 hash of the words.
+    function hashWords(uint256[] memory words) internal pure returns (bytes32 hash) {
         assembly ("memory-safe") {
-            hash_ := keccak256(add(words_, 0x20), mul(mload(words_), 0x20))
+            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))
         }
     }
 
-    function combineHashes(bytes32 a_, bytes32 b_) internal pure returns (bytes32 hash_) {
+    /// Combine two hashes into one by hashing their concatenation.
+    /// @param a The first hash.
+    /// @param b The second hash.
+    /// @return hash The combined hash.
+    function combineHashes(bytes32 a, bytes32 b) internal pure returns (bytes32 hash) {
         assembly ("memory-safe") {
-            mstore(0, a_)
-            mstore(0x20, b_)
-            hash_ := keccak256(0, 0x40)
+            mstore(0, a)
+            mstore(0x20, b)
+            hash := keccak256(0, 0x40)
         }
     }
 }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.25;
 
 import {Test} from "forge-std/Test.sol";
 import {LibHashNoAlloc, HASH_NIL} from "../src/LibHashNoAlloc.sol";
@@ -8,16 +8,16 @@ import {LibHashSlow} from "./LibHashSlow.sol";
 
 contract LibHashNoAllocTest is Test {
     function testHashNil() public pure {
-        bytes32 hashNil_;
+        bytes32 hashNil;
         assembly ("memory-safe") {
-            hashNil_ := keccak256(0, 0)
+            hashNil := keccak256(0, 0)
         }
-        assertEq(HASH_NIL, hashNil_);
+        assertEq(HASH_NIL, hashNil);
         assertEq(HASH_NIL, keccak256(""));
     }
 
-    function testHashBytes(bytes memory bytes_) public pure {
-        assertEq(LibHashNoAlloc.hashBytes(bytes_), LibHashSlow.hashBytesSlow(bytes_));
+    function testHashBytes(bytes memory bs) public pure {
+        assertEq(LibHashNoAlloc.hashBytes(bs), LibHashSlow.hashBytesSlow(bs));
     }
 
     function testHashBytesEmpty() public pure {
@@ -40,12 +40,12 @@ contract LibHashNoAllocTest is Test {
         LibHashSlow.hashBytesSlow(new bytes(0x200));
     }
 
-    function testHashWords(bytes32[] memory words_) public pure {
-        assertEq(LibHashNoAlloc.hashWords(words_), LibHashSlow.hashWordsSlow(words_));
+    function testHashWords(bytes32[] memory words) public pure {
+        assertEq(LibHashNoAlloc.hashWords(words), LibHashSlow.hashWordsSlow(words));
     }
 
-    function testHashWordsUint256(uint256[] memory words_) public pure {
-        assertEq(LibHashNoAlloc.hashWords(words_), LibHashSlow.hashWordsSlow(words_));
+    function testHashWordsUint256(uint256[] memory words) public pure {
+        assertEq(LibHashNoAlloc.hashWords(words), LibHashSlow.hashWordsSlow(words));
     }
 
     function testHashWordsEmpty() public pure {
@@ -68,8 +68,8 @@ contract LibHashNoAllocTest is Test {
         LibHashSlow.hashWordsSlow(new bytes32[](20));
     }
 
-    function testCombineHashes(bytes32 a_, bytes32 b_) public pure {
-        assertEq(LibHashNoAlloc.combineHashes(a_, b_), LibHashSlow.combineHashesSlow(a_, b_));
+    function testCombineHashes(bytes32 a, bytes32 b) public pure {
+        assertEq(LibHashNoAlloc.combineHashes(a, b), LibHashSlow.combineHashesSlow(a, b));
     }
 
     function testCombineHashesGas0() public pure {

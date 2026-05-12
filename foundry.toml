@@ -7,4 +7,12 @@ optimizer = true
 optimizer_runs = 100000
 evm_version = "cancun"
 
+libs = ["dependencies"]
+
 fuzz.runs = 1024
+
+[dependencies]
+forge-std = "1.16.1"
+
+[soldeer]
+recursive_deps = false

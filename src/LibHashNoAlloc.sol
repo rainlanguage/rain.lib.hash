@@ -36,17 +36,19 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 /// byte strings. Even better, the native behaviour of `keccak256` in the EVM
 /// requires no additional allocation of memory. Worst case scenario is that we
 /// want to hash several hashes together like `hash(hash0, hash1, ...)`, in which
-/// case we can write the words after the free memory pointer, hash them, but
-/// leave the pointer. This way we pay for memory expansion but can re-use that
-/// region of memory for subsequent logic, which may effectively make the
-/// expansion free as we would have needed to pay for it anyway. Given that hash
-/// checks often occur early in real world logic due to
-/// checks-effects-interactions, this is not an unreasonable assumption to call
-/// this kind of expansion "no alloc".
+/// case `combineHashes` writes the two words to the scratch space at
+/// `0x00-0x3f` that Solidity reserves for hashing and hashes them there. That
+/// touches neither the free memory pointer at `0x40` nor any memory past it, so
+/// nothing is allocated and no memory expansion is paid; longer chains fold
+/// pairwise through the same two words. "No alloc" means exactly that for every
+/// function here: `hashBytes` and `hashWords` hash their data where it already
+/// sits, and `combineHashes` hashes through scratch space.
 ///
-/// One problem is that the gas saving for trivial abi encoding,
-/// e.g. ~1-3 uint256 values, can be lost by the overhead of jumps and stack
-/// manipulation due to function calls.
+/// The functions here are `internal` and tiny; where the optimizer does not
+/// inline a call, the jump in and out plus the stack shuffling costs tens of
+/// gas, which is well under the saving over abi encoding for even one or two
+/// words, and the assembly is short enough to inline by hand where that
+/// matters.
 ///
 /// ```
 /// struct Foo {
@@ -63,15 +65,21 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 /// }
 /// ```
 /// Every struct field is 0x20 bytes in memory so 3 fields = 0x60 bytes to hash
-/// always, with the exception of dynamic types. This costs about 70 gas vs.
-/// about 350 gas for an abi encoding based approach.
+/// always, with the exception of dynamic types. This costs one `keccak256`
+/// opcode plus a few stack operations. `keccak256(abi.encode(foo_))` first
+/// allocates a fresh 3-word buffer, copies the three fields into it and bumps
+/// the free memory pointer, then pays the same hash; the encoding step alone
+/// costs more gas than the whole in-place hash.
 ///
 /// The functions taking a memory reference read the length word the type
 /// guarantees; a reference whose length word does not describe its allocation
 /// is a memory-safety violation by the caller and, like all such violations,
 /// undefined.
 library LibHashNoAlloc {
-    /// Hash bytes without allocating memory.
+    /// Hash bytes. Solidity's own `keccak256(data)` already compiles to this
+    /// same `keccak256(add(data, 0x20), mload(data))` with no allocation, so
+    /// this saves nothing over it and exists only so `bytes` hash through the
+    /// same API as words.
     /// Hashes the `mload(data)` bytes starting at `data + 0x20`.
     /// @param data The bytes to hash.
     /// @return hash The keccak256 hash of the bytes.

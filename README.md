@@ -183,9 +183,12 @@ The Solidity type system can definitely make a lot of this more efficient,
 especially the traversal bit, by generating the traversal process at compile time
 but it can't hand wave away the need for allocating and copying.
 
-**Typically, my experience has shown that if some algorithm `f(x)` is implemented
-in a functionally equivalent way, where one implementation internally encodes `x`
-and another avoids it, the no-encode solution often costs 40-80%+ less gas.**
+**Typically, if some algorithm `f(x)` is implemented in a functionally
+equivalent way, where one implementation internally encodes `x` and another
+avoids it, the no-encode solution saves the encoding's allocate-and-copy cost,
+which grows with the size of `x`, less whatever fixed work it does instead
+(e.g. extra `keccak256` calls), so the saving ranges from slightly negative for
+a few words of `x` to most of the gas for larger inputs.**
 This saving is of course most noticeable when the algorithm is relatively
 efficient, or involves a tight internal loop over encoding, such that the
 encoding then starts to dominate the profile. Even in cases where that is not
@@ -441,9 +444,16 @@ accumulator. I.e. Start from the nil hash N, hash `foos_[0]` to hash A, then
 write N and A to scratch and hash to produce B, then hash `foos_[1]` to hash C,
 and hash B and C to produce D, etc.
 
-This process of iterating and accumulating a hash incrementally seems to be about
-40% cheaper in gas terms than ABI encoding then hashing, based on some simple
-testing with Foundry.
+How much cheaper this process of iterating and accumulating a hash is than
+`keccak256(abi.encode(foos_))` depends almost entirely on how much data sits
+behind each pointer. The fold pays a near-fixed cost per `keccak256` call (five
+per `Foo` above plus one to fold it into the accumulator) and only 6 gas per
+word hashed, whereas `abi.encode` copies every word of every element and writes
+the head/tail offsets and lengths before hashing once. Measured with Foundry
+under this repo's compiler settings: with `c` and `d` empty the fold costs about
+the same or slightly more than encoding; with a handful of words in each it
+costs roughly a third to nearly half less; with a kilobyte or so per element it
+costs about a fifth, and the fraction keeps falling as the data grows.
 
 ##### Nil hash prefix
 

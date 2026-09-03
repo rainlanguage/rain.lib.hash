@@ -70,8 +70,14 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 /// Every struct field is 0x20 bytes in memory so 3 fields = 0x60 bytes to hash
 /// always, with the exception of dynamic types. This costs about 70 gas vs.
 /// about 350 gas for an abi encoding based approach.
+///
+/// The functions taking a memory reference read the length word the type
+/// guarantees; a reference whose length word does not describe its allocation
+/// is a memory-safety violation by the caller and, like all such violations,
+/// undefined.
 library LibHashNoAlloc {
     /// Hash bytes without allocating memory.
+    /// Hashes the `mload(data)` bytes starting at `data + 0x20`.
     /// Only the raw bytes are hashed, with no type or length tag. For `data` of
     /// length `32n` the result equals `hashWords` over those `n` words, and for
     /// `data` equal to the 64 bytes of `a` followed by `b` it equals
@@ -86,6 +92,7 @@ library LibHashNoAlloc {
     }
 
     /// Hash an array of bytes32 words without allocating memory.
+    /// Hashes the `mload(words) * 0x20` bytes starting at `words + 0x20`.
     /// The length word is not hashed: the result is the hash of the `32n` raw
     /// bytes of the `n` words, so it equals `hashBytes` over those bytes and the
     /// `uint256[]` overload over the same words, and for `n` = 2 it equals
@@ -99,6 +106,7 @@ library LibHashNoAlloc {
     }
 
     /// Hash an array of uint256 words without allocating memory.
+    /// Hashes the `mload(words) * 0x20` bytes starting at `words + 0x20`.
     /// Identical to the `bytes32[]` overload over the same words, including its
     /// equalities with `hashBytes` and `combineHashes`.
     /// @param words The words to hash.

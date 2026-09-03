@@ -5,15 +5,6 @@ pragma solidity ^0.8.25;
 /// @dev The keccak256 hash of the empty byte string, i.e. hash of no data.
 bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
 
-/// @dev The largest word-list length whose byte size `length * 0x20` fits in
-/// a word, i.e. `2^251 - 1`. `hashWords` reverts for any longer length word.
-uint256 constant HASH_WORDS_MAX_LENGTH = 0x07ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
-
-/// Thrown by `hashWords` when the length word exceeds `HASH_WORDS_MAX_LENGTH`:
-/// `length * 0x20` does not fit in a word, so no byte size describes the list.
-/// @param length The length word read from the array.
-error HashWordsLengthOverflow(uint256 length);
-
 /// @title LibHashNoAlloc
 /// @notice When producing hashes of just about anything that isn't already bytes
 /// the common suggestions look something like `keccak256(abi.encode(...))` or
@@ -74,11 +65,14 @@ error HashWordsLengthOverflow(uint256 length);
 /// Every struct field is 0x20 bytes in memory so 3 fields = 0x60 bytes to hash
 /// always, with the exception of dynamic types. This costs about 70 gas vs.
 /// about 350 gas for an abi encoding based approach.
+///
+/// The functions taking a memory reference read the length word the type
+/// guarantees; a reference whose length word does not describe its allocation
+/// is a memory-safety violation by the caller and, like all such violations,
+/// undefined.
 library LibHashNoAlloc {
     /// Hash bytes without allocating memory.
-    /// Hashes the `mload(data)` bytes starting at `data + 0x20`. The length
-    /// word is trusted as-is: a length word that overstates the allocation
-    /// hashes whatever memory follows it, exactly as `keccak256(data)` does.
+    /// Hashes the `mload(data)` bytes starting at `data + 0x20`.
     /// @param data The bytes to hash.
     /// @return hash The keccak256 hash of the bytes.
     function hashBytes(bytes memory data) internal pure returns (bytes32 hash) {
@@ -88,44 +82,22 @@ library LibHashNoAlloc {
     }
 
     /// Hash an array of bytes32 words without allocating memory.
-    /// Hashes the `mload(words) * 0x20` bytes starting at `words + 0x20`. The
-    /// length word is trusted as-is: a length word that overstates the
-    /// allocation hashes whatever memory follows it. Reverts with
-    /// `HashWordsLengthOverflow` when the length word exceeds
-    /// `HASH_WORDS_MAX_LENGTH`, as its byte size does not fit in a word.
+    /// Hashes the `mload(words) * 0x20` bytes starting at `words + 0x20`.
     /// @param words The words to hash.
     /// @return hash The keccak256 hash of the words.
     function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
         assembly ("memory-safe") {
-            let length := mload(words)
-            if gt(length, HASH_WORDS_MAX_LENGTH) {
-                // `HashWordsLengthOverflow(uint256)` ABI-encoded in scratch space.
-                mstore(0, 0x100fd3d1)
-                mstore(0x20, length)
-                revert(0x1c, 0x24)
-            }
-            hash := keccak256(add(words, 0x20), mul(length, 0x20))
+            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))
         }
     }
 
     /// Hash an array of uint256 words without allocating memory.
-    /// Hashes the `mload(words) * 0x20` bytes starting at `words + 0x20`. The
-    /// length word is trusted as-is: a length word that overstates the
-    /// allocation hashes whatever memory follows it. Reverts with
-    /// `HashWordsLengthOverflow` when the length word exceeds
-    /// `HASH_WORDS_MAX_LENGTH`, as its byte size does not fit in a word.
+    /// Hashes the `mload(words) * 0x20` bytes starting at `words + 0x20`.
     /// @param words The words to hash.
     /// @return hash The keccak256 hash of the words.
     function hashWords(uint256[] memory words) internal pure returns (bytes32 hash) {
         assembly ("memory-safe") {
-            let length := mload(words)
-            if gt(length, HASH_WORDS_MAX_LENGTH) {
-                // `HashWordsLengthOverflow(uint256)` ABI-encoded in scratch space.
-                mstore(0, 0x100fd3d1)
-                mstore(0x20, length)
-                revert(0x1c, 0x24)
-            }
-            hash := keccak256(add(words, 0x20), mul(length, 0x20))
+            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))
         }
     }
 

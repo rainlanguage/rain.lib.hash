@@ -65,8 +65,14 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 /// Every struct field is 0x20 bytes in memory so 3 fields = 0x60 bytes to hash
 /// always, with the exception of dynamic types. This costs about 70 gas vs.
 /// about 350 gas for an abi encoding based approach.
+///
+/// The functions taking a memory reference read the length word the type
+/// guarantees; a reference whose length word does not describe its allocation
+/// is a memory-safety violation by the caller and, like all such violations,
+/// undefined.
 library LibHashNoAlloc {
     /// Hash bytes without allocating memory.
+    /// Hashes the `mload(data)` bytes starting at `data + 0x20`.
     /// @param data The bytes to hash.
     /// @return hash The keccak256 hash of the bytes.
     function hashBytes(bytes memory data) internal pure returns (bytes32 hash) {
@@ -76,6 +82,7 @@ library LibHashNoAlloc {
     }
 
     /// Hash an array of bytes32 words without allocating memory.
+    /// Hashes the `mload(words) * 0x20` bytes starting at `words + 0x20`.
     /// @param words The words to hash.
     /// @return hash The keccak256 hash of the words.
     function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
@@ -85,6 +92,7 @@ library LibHashNoAlloc {
     }
 
     /// Hash an array of uint256 words without allocating memory.
+    /// Hashes the `mload(words) * 0x20` bytes starting at `words + 0x20`.
     /// @param words The words to hash.
     /// @return hash The keccak256 hash of the words.
     function hashWords(uint256[] memory words) internal pure returns (bytes32 hash) {

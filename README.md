@@ -265,8 +265,13 @@ defined by its type. This may not be intuitive but all of `uint256`, `address`,
 `uint256[]` and `bytes`, and all other types, are all a full singular word in
 the struct.
 
-Any types that are smaller than 1 word are padded with 0's such that they retain
-the same `uint256` equivalent value.
+Any types that are smaller than 1 word occupy a full word. Unsigned integers,
+`address`, `bool` and enums are right-aligned and padded with 0's, so the word
+is the same `uint256` equivalent value. Signed integers are right-aligned and
+sign-extended, so the word is `uint256(int256(x))`: `int8(-1)` is `0xff…ff`, not
+`0x00…ff`. `bytesN` is left-aligned and padded with 0's on the right, so the word
+is `uint256(bytes32(x))`: `bytes4(0x01020304)` is `0x01020304` followed by 28
+zero bytes, not `0x00…01020304`. The hash is of the word as laid out.
 
 Any types that are larger, or potentially larger than 1 word are pointers to that
 data, from the perspective of the struct.

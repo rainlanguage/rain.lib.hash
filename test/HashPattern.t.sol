@@ -19,12 +19,12 @@ struct Foo {
 /// deviation from the README is that each result is assigned to a Solidity
 /// variable instead of a Yul `let` so that it can be asserted. The oracles use
 /// neither the library nor the assembly under test.
-contract ReadmeExamplesTest is Test {
+contract HashPatternTest is Test {
     /// "Hashing contigious words": a `Foo` is the 4 words `a`, `b` and the
     /// pointers to `c` and `d`, so the hash is the hash of exactly those 4
     /// words. The pointer values come from the compiler, not from offsets into
     /// the struct.
-    function testReadmeHashContiguousWords(uint256 a, address b, uint256[] memory c, bytes memory d) public pure {
+    function testHashContiguousWords(uint256 a, address b, uint256[] memory c, bytes memory d) public pure {
         Foo memory foo_ = Foo(a, b, c, d);
         bytes32 hash_;
         assembly ("memory-safe") {
@@ -43,7 +43,7 @@ contract ReadmeExamplesTest is Test {
     /// "Hashing contigious words" for a static array: a `bytes32[3]` is its 3
     /// words with no length prefix, so the word at the pointer is element 0
     /// and hashing the 3 words hashes the elements packed.
-    function testReadmeHashStaticBytes32Array(bytes32[3] memory arr_) public pure {
+    function testHashStaticBytes32Array(bytes32[3] memory arr_) public pure {
         bytes32 hash_;
         bytes32 first_;
         assembly ("memory-safe") {
@@ -55,7 +55,7 @@ contract ReadmeExamplesTest is Test {
     }
 
     /// The same for a `uint256[4]`: 4 words, no length prefix.
-    function testReadmeHashStaticUint256Array(uint256[4] memory arr_) public pure {
+    function testHashStaticUint256Array(uint256[4] memory arr_) public pure {
         bytes32 hash_;
         uint256 first_;
         assembly ("memory-safe") {
@@ -71,7 +71,7 @@ contract ReadmeExamplesTest is Test {
     /// `new Foo[](n)` allocates the 0x20 + n * 0x20 list first and then one
     /// 0x80 zero-initialised `Foo` per element, so the first `Foo` starts
     /// exactly where the list ends.
-    function testReadmeFooListIsWordList(uint8 length) public pure {
+    function testFooListIsWordList(uint8 length) public pure {
         uint256 n = length;
         uint256 fmpBefore;
         assembly ("memory-safe") {
@@ -107,7 +107,7 @@ contract ReadmeExamplesTest is Test {
 
     /// "Hashing dynamic length list of words": the `length` words after the
     /// length prefix, i.e. the packed words without the prefix.
-    function testReadmeHashWordList(uint256[] memory bar_) public pure {
+    function testHashWordList(uint256[] memory bar_) public pure {
         bytes32 hash_;
         assembly ("memory-safe") {
             // Assume bar_ is some dynamic length list of words
@@ -123,7 +123,7 @@ contract ReadmeExamplesTest is Test {
     }
 
     /// The "Hashing dynamic length byte strings" example over `bytes`.
-    function readmeHashBytes(bytes memory baz_) internal pure returns (bytes32 hash_) {
+    function hashBytesExample(bytes memory baz_) internal pure returns (bytes32 hash_) {
         assembly ("memory-safe") {
             // Assume baz_ is some bytes/string
             hash_ := keccak256(
@@ -137,13 +137,13 @@ contract ReadmeExamplesTest is Test {
 
     /// "Hashing dynamic length byte strings": the `length` bytes after the
     /// length prefix, i.e. `keccak256` of the bytes themselves.
-    function testReadmeHashBytes(bytes memory baz_) public pure {
-        assertEq(readmeHashBytes(baz_), keccak256(baz_));
+    function testHashBytes(bytes memory baz_) public pure {
+        assertEq(hashBytesExample(baz_), keccak256(baz_));
     }
 
     /// "It is the same for `string` and `bytes`": the same example over a
     /// `string` is `keccak256` of the string's bytes.
-    function testReadmeHashString(string memory baz_) public pure {
+    function testHashString(string memory baz_) public pure {
         bytes32 hash_;
         assembly ("memory-safe") {
             // Assume baz_ is some bytes/string
@@ -161,7 +161,7 @@ contract ReadmeExamplesTest is Test {
     /// same single data word (1 and 2 bytes, both zero-padded to 0x20), so a
     /// hash over the allocated word would not tell them apart; the example
     /// hashes only the `length` bytes and does.
-    function testReadmeBytesTrueLength() public pure {
+    function testBytesTrueLength() public pure {
         bytes memory one_ = hex"01";
         bytes memory two_ = hex"0100";
         uint256 wordOne_;
@@ -172,8 +172,8 @@ contract ReadmeExamplesTest is Test {
         }
         assertEq(wordOne_, wordTwo_);
 
-        bytes32 hashOne_ = readmeHashBytes(one_);
-        bytes32 hashTwo_ = readmeHashBytes(two_);
+        bytes32 hashOne_ = hashBytesExample(one_);
+        bytes32 hashTwo_ = hashBytesExample(two_);
         assertTrue(hashOne_ != hashTwo_);
         assertEq(hashOne_, keccak256(hex"01"));
         assertEq(hashTwo_, keccak256(hex"0100"));
@@ -182,7 +182,7 @@ contract ReadmeExamplesTest is Test {
     /// "Handling pointers": the prose steps A to E over `Foo`. A is the first
     /// two words, B is the word list `c`, C combines A and B, D is the bytes
     /// `d`, E combines C and D.
-    function testReadmeHandlingPointers(uint256 a, address b, uint256[] memory c, bytes memory d) public pure {
+    function testHandlingPointers(uint256 a, address b, uint256[] memory c, bytes memory d) public pure {
         Foo memory foo_ = Foo(a, b, c, d);
         bytes32 e;
         assembly ("memory-safe") {

@@ -19,7 +19,7 @@ struct Foo {
 /// oracle for every assertion is built from `keccak256`, `abi.encode` and
 /// `abi.encodePacked` only; `LibHashNoAlloc.combineHashes` stands in for
 /// "write both to scratch and hash" on the side under test.
-contract ReadmeFoldTest is Test {
+contract HashPatternFoldTest is Test {
     /// The README's hash of one `Foo`, steps A to E: A is the first two
     /// words, B the word list `c`, C combines A and B, D the bytes `d`, E
     /// combines C and D.
@@ -33,7 +33,7 @@ contract ReadmeFoldTest is Test {
 
     /// The README fold: start from the nil hash, then for each item write
     /// the accumulator and the item's hash to scratch and hash the pair.
-    function foldReadme(Foo[] memory foos) internal pure returns (bytes32 acc) {
+    function foldPattern(Foo[] memory foos) internal pure returns (bytes32 acc) {
         acc = HASH_NIL;
         for (uint256 i = 0; i < foos.length; i++) {
             acc = LibHashNoAlloc.combineHashes(acc, hashFoo(foos[i]));
@@ -61,7 +61,7 @@ contract ReadmeFoldTest is Test {
     /// the nil hash, A the hash of `foos_[0]`, B the hash of N then A, C the
     /// hash of `foos_[1]`, D the hash of B then C. B is the fold of the first
     /// item alone and D the fold of both.
-    function testReadmeFoldLetters(Foo memory foo0, Foo memory foo1) public pure {
+    function testFoldLetters(Foo memory foo0, Foo memory foo1) public pure {
         Foo[] memory foos = new Foo[](2);
         foos[0] = foo0;
         foos[1] = foo1;
@@ -75,35 +75,35 @@ contract ReadmeFoldTest is Test {
         Foo[] memory first = new Foo[](1);
         first[0] = foo0;
         assertEq(b, foldOracle(first));
-        assertEq(b, foldReadme(first));
+        assertEq(b, foldPattern(first));
         assertEq(d, foldOracle(foos));
-        assertEq(d, foldReadme(foos));
+        assertEq(d, foldPattern(foos));
     }
 
     /// Every length from 0 to 4: the scratch-space fold equals the builtin
     /// fold.
-    function testReadmeFoldMatchesBuiltins(Foo[4] memory pool) public pure {
+    function testFoldMatchesBuiltins(Foo[4] memory pool) public pure {
         for (uint256 n = 0; n <= 4; n++) {
             Foo[] memory foos = take(pool, n);
-            assertEq(foldReadme(foos), foldOracle(foos));
+            assertEq(foldPattern(foos), foldOracle(foos));
         }
     }
 
     /// README "Nil hash prefix": an empty `Foo[]` folds to the nil hash, the
     /// hash of no bytes.
-    function testReadmeFoldEmptyIsNilHash() public pure {
+    function testFoldEmptyIsNilHash() public pure {
         Foo[] memory foos = new Foo[](0);
-        assertEq(foldReadme(foos), keccak256(""));
-        assertEq(foldReadme(foos), HASH_NIL);
+        assertEq(foldPattern(foos), keccak256(""));
+        assertEq(foldPattern(foos), HASH_NIL);
     }
 
     /// README "Nil hash prefix": `[x]` folds to `hash(nil + hash(x))`, which
     /// is not `hash(x)`.
-    function testReadmeFoldSingletonIsNotItem(Foo memory x) public pure {
+    function testFoldSingletonIsNotItem(Foo memory x) public pure {
         Foo[] memory foos = new Foo[](1);
         foos[0] = x;
         bytes32 hashX = hashFoo(x);
-        bytes32 folded = foldReadme(foos);
+        bytes32 folded = foldPattern(foos);
         assertEq(folded, keccak256(abi.encodePacked(HASH_NIL, hashX)));
         assertTrue(folded != hashX);
     }

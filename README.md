@@ -47,7 +47,8 @@ the contract, then the contract can emit the hash into the logs etc.
 We are even fine with changing the patterns described in this document over time.
 There's no requirement that a hash produced by one contract is compatible with
 the hash produced by another. Our goal is that contracts implementing these
-patterns can securely accept arbitrary inputs, NOT that the basic approach
+patterns can securely accept arbitrary inputs of the types they are written
+for (see "Security of composition" below), NOT that the basic approach
 ossifies due to unrelated contracts doing different things to each other.
 
 **That is to say, there's no "upgradeable contract" support.**
@@ -472,19 +473,69 @@ Assume that we're comfortable with concepts like blockchains and merkle trees,
 that rely on hashes of hashes to iteratively build a single hash out of a system
 of hashes.
 
-We need to convince ourselves that the hashing process above is unambiguous for
-all permutations.
+We need to convince ourselves that the hashing process above is unambiguous,
+and to be precise about what "unambiguous" covers. The pattern hashes raw
+memory with no type, length or domain tag, so it is injective only under a
+restriction that the caller has to uphold.
 
-This relies on us accepting that `hash(hash(a) + hash(b))` will not collide with
-`hash(hash(c) + hash(d))` for all values of `a`, `b`, `c`, `d` except the trivial
-case where `a` = `c` and `b` = `d`.
+##### The restriction: one hash domain, one type
 
-As long as `hash(x)` and `hash(x) + hash(y)` don't produce collisions then this
-is true. This guarantee seems to come down to the strength of `keccak256` itself.
+Every position in a composition is fixed at compile time: a struct field is
+always the same type, a list always holds the same type, and a pointer is
+always followed to a value of the same type. A hash is only ever compared
+with, stored alongside, or signed in the same domain as, hashes of values of
+the same type. Under that restriction injectivity follows by induction over
+the type, and each step relies on nothing but the collision resistance of
+`keccak256`:
 
-As `keccak256` always produces hashes exactly 32 bytes long for all inputs, we avoid
-all the issues seen with both including and excluding length prefixes, such as
-those seen in `abi.encodePacked`.
+- Contiguous words of a size known at compile time: the hashed bytes are the
+  value, so equal hashes mean equal values.
+- A dynamic list of `n` words: the hashed bytes are the `32n` bytes of the
+  words. Lists of different lengths hash inputs of different lengths, and
+  lists of the same length hash inputs that differ wherever the lists do. The
+  `32n` byte input already commits to `n`, which is why the length prefix is
+  not hashed.
+- `bytes` and `string`: the hashed bytes are the value, at its true length.
+- A pointer: `hash(hash(a) + hash(b))` equals `hash(hash(c) + hash(d))` only if
+  `hash(a)` = `hash(c)` and `hash(b)` = `hash(d)`, and as `a`, `c` share a type
+  and `b`, `d` share a type, by induction `a` = `c` and `b` = `d`.
+- A list of pointers folded from the nil hash: the fold over `n` items is
+  `hash(fold(n - 1) + hash(item))` and the fold over 0 items is the hash of 0
+  bytes, which cannot equal the hash of the 64 bytes any longer fold hashes.
+  Equal folds therefore have equal lengths and, by induction, equal items.
+
+As `keccak256` always produces hashes exactly 32 bytes long for all inputs, a
+node is always exactly two hashes and needs no length prefix, so we avoid the
+issues seen with both including and excluding length prefixes, such as those
+seen in `abi.encodePacked`.
+
+##### Across types nothing is unambiguous
+
+Any two values of DIFFERENT types whose hashed bytes coincide hash
+identically. Concretely, with the reference implementation:
+
+- `hashBytes` over `32n` bytes equals `hashWords` over those `n` words, for
+  `bytes32[]` and `uint256[]` alike, and equals a static `bytes32[n]` hashed
+  as contiguous words.
+- `hashBytes` over the 64 bytes `hash(c) + hash(d)` equals
+  `combineHashes(hash(c), hash(d))`. A `bytes` LEAF whose content is two
+  hashes is indistinguishable from the NODE built from those hashes. In merkle
+  tree terms this is the leaf/node second preimage that RFC 6962 rules out by
+  prefixing leaves with `0x00` and nodes with `0x01`; this pattern has no such
+  prefix.
+- `hashBytes` over empty bytes, `hashWords` over an empty list and the fold
+  over an empty list of pointers of any type are all the nil hash.
+
+None of these is a collision within a type, so none of them touches the
+induction above. They bite the moment the restriction is dropped: if one hash
+domain (one storage mapping, one signed message format, one set of preimages
+a contract accepts) admits values of more than one type, then whoever controls
+a `bytes` leaf can present the node of a different structure, and an empty
+list of one type passes as an empty list of another. A contract that must
+accept more than one type in the same domain has to add its own domain
+separation, e.g. hash a per-type constant into the composition the way EIP712
+hashes a type hash into every struct hash. The reference implementation adds
+none.
 
 I'm not sure this constitutes a formal mathematical proof, but I'm not sure if
 one exists for `abi.encode` either :)

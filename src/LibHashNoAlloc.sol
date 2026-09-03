@@ -7,7 +7,7 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 
 /// @dev The largest word-list length whose byte size `length * 0x20` fits in
 /// a word, i.e. `2^251 - 1`. `hashWords` reverts for any longer length word.
-uint256 constant HASH_WORDS_MAX_LENGTH = type(uint256).max / 0x20;
+uint256 constant HASH_WORDS_MAX_LENGTH = 0x07ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 
 /// Thrown by `hashWords` when the length word exceeds `HASH_WORDS_MAX_LENGTH`:
 /// `length * 0x20` does not fit in a word, so no byte size describes the list.
@@ -96,11 +96,15 @@ library LibHashNoAlloc {
     /// @param words The words to hash.
     /// @return hash The keccak256 hash of the words.
     function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
-        if (words.length > HASH_WORDS_MAX_LENGTH) {
-            revert HashWordsLengthOverflow(words.length);
-        }
         assembly ("memory-safe") {
-            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))
+            let length := mload(words)
+            if gt(length, HASH_WORDS_MAX_LENGTH) {
+                // `HashWordsLengthOverflow(uint256)` ABI-encoded in scratch space.
+                mstore(0, 0x100fd3d1)
+                mstore(0x20, length)
+                revert(0x1c, 0x24)
+            }
+            hash := keccak256(add(words, 0x20), mul(length, 0x20))
         }
     }
 
@@ -113,11 +117,15 @@ library LibHashNoAlloc {
     /// @param words The words to hash.
     /// @return hash The keccak256 hash of the words.
     function hashWords(uint256[] memory words) internal pure returns (bytes32 hash) {
-        if (words.length > HASH_WORDS_MAX_LENGTH) {
-            revert HashWordsLengthOverflow(words.length);
-        }
         assembly ("memory-safe") {
-            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))
+            let length := mload(words)
+            if gt(length, HASH_WORDS_MAX_LENGTH) {
+                // `HashWordsLengthOverflow(uint256)` ABI-encoded in scratch space.
+                mstore(0, 0x100fd3d1)
+                mstore(0x20, length)
+                revert(0x1c, 0x24)
+            }
+            hash := keccak256(add(words, 0x20), mul(length, 0x20))
         }
     }
 

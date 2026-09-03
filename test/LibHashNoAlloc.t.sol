@@ -222,13 +222,13 @@ contract LibHashNoAllocTest is Test {
     }
 
     function testHashWordsLengthOverflowReverts(uint256 length) public {
-        length = bound(length, HASH_WORDS_MAX_LENGTH + 1, type(uint256).max);
+        length = bound(length, 2 ** 251, type(uint256).max);
         vm.expectRevert(abi.encodeWithSelector(HashWordsLengthOverflow.selector, length));
         this.forgedHashWords(length);
     }
 
     function testHashWordsUint256LengthOverflowReverts(uint256 length) public {
-        length = bound(length, HASH_WORDS_MAX_LENGTH + 1, type(uint256).max);
+        length = bound(length, 2 ** 251, type(uint256).max);
         vm.expectRevert(abi.encodeWithSelector(HashWordsLengthOverflow.selector, length));
         this.forgedHashWordsUint256(length);
     }
@@ -237,11 +237,11 @@ contract LibHashNoAllocTest is Test {
     /// on memory expansion (out of gas, no return data), not on the guard.
     function testHashWordsMaxLengthPassesGuard() public {
         (bool success, bytes memory data) =
-            address(this).call{gas: 1_000_000}(abi.encodeCall(this.forgedHashWords, (HASH_WORDS_MAX_LENGTH)));
+            address(this).call{gas: 1_000_000}(abi.encodeCall(this.forgedHashWords, (2 ** 251 - 1)));
         assertTrue(!success);
         assertEq(data.length, 0);
         (success, data) =
-            address(this).call{gas: 1_000_000}(abi.encodeCall(this.forgedHashWordsUint256, (HASH_WORDS_MAX_LENGTH)));
+            address(this).call{gas: 1_000_000}(abi.encodeCall(this.forgedHashWordsUint256, (2 ** 251 - 1)));
         assertTrue(!success);
         assertEq(data.length, 0);
     }

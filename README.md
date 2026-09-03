@@ -435,10 +435,11 @@ assembly ("memory-safe") {
 ```
 
 If we had a list of pointers, such as a `Foo[]` then this would be modelled as
-a simple fold/reduce style accumulator where each item is hashed as above
-individually then hashed into the accumulator. I.e. Hash `foos_[0]` to hash A,
-then hash `foos_[1]` to hash B, then write both to scratch and hash to produce C,
-then hash `foos_[2]` to hash D, and hash C and D to produce E, etc.
+a simple fold/reduce-style accumulator, seeded with the nil hash (see below),
+where each item is hashed as above individually then hashed into the
+accumulator. I.e. Start from the nil hash N, hash `foos_[0]` to hash A, then
+write N and A to scratch and hash to produce B, then hash `foos_[1]` to hash C,
+and hash B and C to produce D, etc.
 
 This process of iterating and accumulating a hash incrementally seems to be about
 40% cheaper in gas terms than ABI encoding then hashing, based on some simple
@@ -451,6 +452,9 @@ array of pointers, we start with the hash of nil bytes, i.e. `keccak256(0, 0)`.
 
 If the array is 0 length then the hash will be the nil hash, regardless of the
 type behind the pointers.
+
+The seed is also what separates a one-item array from its item: `[x]` hashes
+to `hash(nil + hash(x))` rather than `hash(x)`.
 
 #### Security of composition
 

@@ -184,9 +184,12 @@ The Solidity type system can definitely make a lot of this more efficient,
 especially the traversal bit, by generating the traversal process at compile time
 but it can't hand wave away the need for allocating and copying.
 
-**Typically, my experience has shown that if some algorithm `f(x)` is implemented
-in a functionally equivalent way, where one implementation internally encodes `x`
-and another avoids it, the no-encode solution often costs 40-80%+ less gas.**
+**Typically, if some algorithm `f(x)` is implemented in a functionally
+equivalent way, where one implementation internally encodes `x` and another
+avoids it, the no-encode solution saves the encoding's allocate-and-copy cost,
+which grows with the size of `x`, less whatever fixed work it does instead
+(e.g. extra `keccak256` calls), so the saving ranges from slightly negative for
+a few words of `x` to most of the gas for larger inputs.**
 This saving is of course most noticeable when the algorithm is relatively
 efficient, or involves a tight internal loop over encoding, such that the
 encoding then starts to dominate the profile. Even in cases where that is not
@@ -264,8 +267,13 @@ defined by its type. This may not be intuitive but all of `uint256`, `address`,
 `uint256[]` and `bytes`, and all other types, are all a full singular word in
 the struct.
 
-Any types that are smaller than 1 word are padded with 0's such that they retain
-the same `uint256` equivalent value.
+Any types that are smaller than 1 word occupy a full word. Unsigned integers,
+`address`, `bool` and enums are right-aligned and padded with 0's, so the word
+is the same `uint256` equivalent value. Signed integers are right-aligned and
+sign-extended, so the word is `uint256(int256(x))`: `int8(-1)` is `0xff…ff`, not
+`0x00…ff`. `bytesN` is left-aligned and padded with 0's on the right, so the word
+is `uint256(bytes32(x))`: `bytes4(0x01020304)` is `0x01020304` followed by 28
+zero bytes, not `0x00…01020304`. The hash is of the word as laid out.
 
 Any types that are larger, or potentially larger than 1 word are pointers to that
 data, from the perspective of the struct.
@@ -292,7 +300,7 @@ For example, we could hash a `foo_` as above like so
 
 ```solidity
 assembly ("memory-safe") {
-    let hash_ := keccak256(foo_, add(foo_, 0x80))
+    let hash_ := keccak256(foo_, 0x80)
 }
 ```
 
@@ -410,10 +418,10 @@ As assembly it would look like
 assembly ("memory-safe") {
     // hash foo_.a and foo_.b together to produce hash A
     // store A in scratch
-    mstore(0, keccak256(foo_, add(foo_, 0x40)))
+    mstore(0, keccak256(foo_, 0x40))
 
     // Follow the pointer to hash foo_.c into B
-    let deref_ := mload(add(foo_, 0x60))
+    let deref_ := mload(add(foo_, 0x40))
     // Store B in scratch
     mstore(0x20, keccak256(add(deref_, 0x20), mul(mload(deref_), 0x20)))
 
@@ -421,7 +429,7 @@ assembly ("memory-safe") {
     mstore(0, keccak256(0, 0x40))
 
     // Follow the pointer to hash foo_.d
-    deref_ := mload(add(foo_, 0x80))
+    deref_ := mload(add(foo_, 0x60))
     // Store D in scratch
     mstore(0x20, keccak256(add(deref_, 0x20), mload(deref_)))
 
@@ -431,14 +439,22 @@ assembly ("memory-safe") {
 ```
 
 If we had a list of pointers, such as a `Foo[]` then this would be modelled as
-a simple fold/reduce style accumulator where each item is hashed as above
-individually then hashed into the accumulator. I.e. Hash `foos_[0]` to hash A,
-then hash `foos_[1]` to hash B, then write both to scratch and hash to produce C,
-then hash `foos_[2]` to hash D, and hash C and D to produce E, etc.
+a simple fold/reduce-style accumulator, seeded with the nil hash (see below),
+where each item is hashed as above individually then hashed into the
+accumulator. I.e. Start from the nil hash N, hash `foos_[0]` to hash A, then
+write N and A to scratch and hash to produce B, then hash `foos_[1]` to hash C,
+and hash B and C to produce D, etc.
 
-This process of iterating and accumulating a hash incrementally seems to be about
-40% cheaper in gas terms than ABI encoding then hashing, based on some simple
-testing with Foundry.
+How much cheaper this process of iterating and accumulating a hash is than
+`keccak256(abi.encode(foos_))` depends almost entirely on how much data sits
+behind each pointer. The fold pays a near-fixed cost per `keccak256` call (five
+per `Foo` above plus one to fold it into the accumulator) and only 6 gas per
+word hashed, whereas `abi.encode` copies every word of every element and writes
+the head/tail offsets and lengths before hashing once. Measured with Foundry
+under this repo's compiler settings: with `c` and `d` empty the fold costs about
+the same or slightly more than encoding; with a handful of words in each it
+costs roughly a third to nearly half less; with a kilobyte or so per element it
+costs about a fifth, and the fraction keeps falling as the data grows.
 
 ##### Nil hash prefix
 
@@ -447,6 +463,9 @@ array of pointers, we start with the hash of nil bytes, i.e. `keccak256(0, 0)`.
 
 If the array is 0 length then the hash will be the nil hash, regardless of the
 type behind the pointers.
+
+The seed is also what separates a one-item array from its item: `[x]` hashes
+to `hash(nil + hash(x))` rather than `hash(x)`.
 
 #### Security of composition
 

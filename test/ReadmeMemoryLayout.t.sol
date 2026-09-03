@@ -13,6 +13,20 @@ struct Foo {
     bytes d;
 }
 
+/// A struct whose second member is a struct: `inner` is one word of the
+/// `Outer`, the pointer to a `Foo`.
+struct Outer {
+    uint256 x;
+    Foo inner;
+}
+
+/// A struct whose second member is an `Outer`: three levels of struct
+/// nesting, one pointer word per level.
+struct Outermost {
+    uint256 y;
+    Outer mid;
+}
+
 /// A three-value enum: in memory its values are the words 0, 1 and 2.
 enum Colour {
     Red,
@@ -183,5 +197,234 @@ contract ReadmeMemoryLayoutTest is Test {
         assertEq(w0, uint256(bytes32(bytes1(0x01))));
         assertEq(w1, uint256(bytes32(bytes1(0x02))));
         assertEq(w2, uint256(bytes32(bytes1(0x03))));
+    }
+
+    /// A struct member of struct type is one pointer word: an `Outer` is 2
+    /// words, and its second word is the pointer Solidity holds for the `Foo`,
+    /// not the `Foo`'s 4 words inlined.
+    function testNestedStructIsOnePointerWord(uint256 x) public pure {
+        Foo memory inner = Foo(1, ADDR, new uint256[](0), "");
+        uint256 fmpBefore;
+        assembly ("memory-safe") {
+            fmpBefore := mload(0x40)
+        }
+        Outer memory outer = Outer(x, inner);
+        uint256 ptr;
+        uint256 fmpAfter;
+        uint256 innerPtr;
+        uint256 w0;
+        uint256 w1;
+        assembly ("memory-safe") {
+            ptr := outer
+            fmpAfter := mload(0x40)
+            innerPtr := inner
+            w0 := mload(outer)
+            w1 := mload(add(outer, 0x20))
+        }
+        assertEq(ptr, fmpBefore);
+        assertEq(fmpAfter - ptr, 0x40);
+        assertEq(w0, x);
+        assertEq(w1, innerPtr);
+    }
+
+    /// Nesting depth does not change the rule: an `Outermost` holding an
+    /// `Outer` holding a `Foo` is 2 words at each level, and the pointer word
+    /// at each level is the pointer to the next struct down.
+    function testDeeplyNestedStructIsOnePointerWordPerLevel(uint256 x, uint256 y) public pure {
+        Foo memory inner = Foo(1, ADDR, new uint256[](0), "");
+        uint256 fmp0;
+        assembly ("memory-safe") {
+            fmp0 := mload(0x40)
+        }
+        Outer memory mid = Outer(x, inner);
+        uint256 fmp1;
+        assembly ("memory-safe") {
+            fmp1 := mload(0x40)
+        }
+        Outermost memory outermost = Outermost(y, mid);
+        uint256 fmp2;
+        uint256 outermostPtr;
+        uint256 midPtr;
+        uint256 innerPtr;
+        uint256 w1;
+        uint256 midW1;
+        assembly ("memory-safe") {
+            fmp2 := mload(0x40)
+            outermostPtr := outermost
+            midPtr := mid
+            innerPtr := inner
+            w1 := mload(add(outermost, 0x20))
+            // Follow the pointer word to the `Outer` and read its pointer word.
+            midW1 := mload(add(w1, 0x20))
+        }
+        assertEq(midPtr, fmp0);
+        assertEq(fmp1 - midPtr, 0x40);
+        assertEq(outermostPtr, fmp1);
+        assertEq(fmp2 - outermostPtr, 0x40);
+        assertEq(w1, midPtr);
+        assertEq(midW1, innerPtr);
+    }
+
+    /// `uint256[]` and `bytes` members are pointer words: the third and fourth
+    /// words of a `Foo` are the pointers Solidity holds for `c` and `d`, not
+    /// their contents.
+    function testDynamicMembersArePointerWords(uint256[] memory c, bytes memory d) public pure {
+        Foo memory f = Foo(1, ADDR, c, d);
+        uint256 cPtr;
+        uint256 dPtr;
+        uint256 w2;
+        uint256 w3;
+        assembly ("memory-safe") {
+            cPtr := c
+            dPtr := d
+            w2 := mload(add(f, 0x40))
+            w3 := mload(add(f, 0x60))
+        }
+        assertEq(w2, cPtr);
+        assertEq(w3, dPtr);
+    }
+
+    /// The allocator rounds `bytes` up to whole words: `new bytes(1)` moves
+    /// the free memory pointer by 0x40 and `new bytes(33)` by 0x60 (the length
+    /// word plus the length rounded up to a multiple of 0x20), while the
+    /// length word stays 1 and 33.
+    function testBytesAllocationRoundsUpToWords() public pure {
+        uint256 fmp0;
+        assembly ("memory-safe") {
+            fmp0 := mload(0x40)
+        }
+        bytes memory one = new bytes(1);
+        uint256 fmp1;
+        uint256 onePtr;
+        uint256 oneLen;
+        assembly ("memory-safe") {
+            fmp1 := mload(0x40)
+            onePtr := one
+            oneLen := mload(one)
+        }
+        bytes memory thirtyThree = new bytes(33);
+        uint256 fmp2;
+        uint256 thirtyThreePtr;
+        uint256 thirtyThreeLen;
+        assembly ("memory-safe") {
+            fmp2 := mload(0x40)
+            thirtyThreePtr := thirtyThree
+            thirtyThreeLen := mload(thirtyThree)
+        }
+        assertEq(onePtr, fmp0);
+        assertEq(fmp1 - onePtr, 0x40);
+        assertEq(oneLen, 1);
+        assertEq(thirtyThreePtr, fmp1);
+        assertEq(fmp2 - thirtyThreePtr, 0x60);
+        assertEq(thirtyThreeLen, 33);
+    }
+
+    /// The same rounding for any length: `new bytes(n)` moves the free memory
+    /// pointer by 0x20 plus `n` rounded up to a multiple of 0x20, and the
+    /// length word is `n`.
+    function testBytesAllocationRoundsUpToWordsForAnyLength(uint16 n) public pure {
+        uint256 fmpBefore;
+        assembly ("memory-safe") {
+            fmpBefore := mload(0x40)
+        }
+        bytes memory b = new bytes(n);
+        uint256 fmpAfter;
+        uint256 ptr;
+        uint256 len;
+        assembly ("memory-safe") {
+            fmpAfter := mload(0x40)
+            ptr := b
+            len := mload(b)
+        }
+        assertEq(ptr, fmpBefore);
+        assertEq(fmpAfter - ptr, 0x20 + ((uint256(n) + 0x1f) / 0x20) * 0x20);
+        assertEq(len, n);
+    }
+
+    /// `new string(n)` allocates exactly as `new bytes(n)` does: the same
+    /// rounded-up free memory pointer movement and the same length word.
+    function testNewStringAllocatesLikeNewBytes(uint16 n) public pure {
+        uint256 fmp0;
+        assembly ("memory-safe") {
+            fmp0 := mload(0x40)
+        }
+        bytes memory b = new bytes(n);
+        uint256 fmp1;
+        assembly ("memory-safe") {
+            fmp1 := mload(0x40)
+        }
+        string memory s = new string(n);
+        uint256 fmp2;
+        uint256 bPtr;
+        uint256 sPtr;
+        uint256 bLen;
+        uint256 sLen;
+        assembly ("memory-safe") {
+            fmp2 := mload(0x40)
+            bPtr := b
+            sPtr := s
+            bLen := mload(b)
+            sLen := mload(s)
+        }
+        assertEq(bPtr, fmp0);
+        assertEq(sPtr, fmp1);
+        assertEq(fmp1 - bPtr, 0x20 + ((uint256(n) + 0x1f) / 0x20) * 0x20);
+        assertEq(fmp2 - sPtr, fmp1 - bPtr);
+        assertEq(bLen, n);
+        assertEq(sLen, n);
+    }
+
+    /// `string` has the layout of `bytes` with the same content: the same
+    /// length word, the same bytes after it, and the same free memory pointer
+    /// movement. Each copy is made by the builtin `concat` for its type.
+    function testStringLayoutIsBytesLayout(bytes memory content) public pure {
+        uint256 fmp0;
+        assembly ("memory-safe") {
+            fmp0 := mload(0x40)
+        }
+        bytes memory b = bytes.concat(content);
+        uint256 fmp1;
+        assembly ("memory-safe") {
+            fmp1 := mload(0x40)
+        }
+        string memory s = string.concat(string(content));
+        uint256 fmp2;
+        uint256 bPtr;
+        uint256 sPtr;
+        uint256 bLen;
+        uint256 sLen;
+        assembly ("memory-safe") {
+            fmp2 := mload(0x40)
+            bPtr := b
+            sPtr := s
+            bLen := mload(b)
+            sLen := mload(s)
+        }
+        assertEq(bPtr, fmp0);
+        assertEq(sPtr, fmp1);
+        assertEq(bLen, content.length);
+        assertEq(sLen, content.length);
+        assertEq(fmp2 - sPtr, fmp1 - bPtr);
+        // The words after the length prefix, the last one masked to the bytes
+        // within the length.
+        for (uint256 i = 0; i < content.length; i += 0x20) {
+            uint256 contentWord;
+            uint256 bWord;
+            uint256 sWord;
+            assembly ("memory-safe") {
+                contentWord := mload(add(add(content, 0x20), i))
+                bWord := mload(add(add(b, 0x20), i))
+                sWord := mload(add(add(s, 0x20), i))
+            }
+            uint256 remaining = content.length - i;
+            if (remaining < 0x20) {
+                uint256 mask = type(uint256).max << (8 * (0x20 - remaining));
+                contentWord &= mask;
+                bWord &= mask;
+                sWord &= mask;
+            }
+            assertEq(bWord, contentWord);
+            assertEq(sWord, bWord);
+        }
     }
 }

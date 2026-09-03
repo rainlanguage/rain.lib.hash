@@ -24,6 +24,26 @@ contract LibHashNoAllocTest is Test {
         assertEq(LibHashNoAlloc.hashBytes(""), HASH_NIL);
     }
 
+    function testHashBytesNoAlloc() public pure {
+        bytes memory data = "abc";
+        uint256 freeMemoryPointerBefore;
+        uint256 zeroSlotBefore;
+        assembly ("memory-safe") {
+            freeMemoryPointerBefore := mload(0x40)
+            zeroSlotBefore := mload(0x60)
+        }
+        bytes32 hash = LibHashNoAlloc.hashBytes(data);
+        uint256 freeMemoryPointerAfter;
+        uint256 zeroSlotAfter;
+        assembly ("memory-safe") {
+            freeMemoryPointerAfter := mload(0x40)
+            zeroSlotAfter := mload(0x60)
+        }
+        assertEq(freeMemoryPointerAfter, freeMemoryPointerBefore);
+        assertEq(zeroSlotAfter, zeroSlotBefore);
+        assertEq(hash, bytes32(0x4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45));
+    }
+
     function testHashBytesGas0() public pure {
         LibHashNoAlloc.hashBytes("");
     }
@@ -48,8 +68,56 @@ contract LibHashNoAllocTest is Test {
         assertEq(LibHashNoAlloc.hashWords(words), LibHashSlow.hashWordsSlow(words));
     }
 
+    function testHashWordsUint256Empty() public pure {
+        assertEq(LibHashNoAlloc.hashWords(new uint256[](0)), HASH_NIL);
+    }
+
+    function testHashWordsUint256NoAlloc() public pure {
+        uint256[] memory words = new uint256[](2);
+        words[0] = 1;
+        words[1] = 2;
+        uint256 freeMemoryPointerBefore;
+        uint256 zeroSlotBefore;
+        assembly ("memory-safe") {
+            freeMemoryPointerBefore := mload(0x40)
+            zeroSlotBefore := mload(0x60)
+        }
+        bytes32 hash = LibHashNoAlloc.hashWords(words);
+        uint256 freeMemoryPointerAfter;
+        uint256 zeroSlotAfter;
+        assembly ("memory-safe") {
+            freeMemoryPointerAfter := mload(0x40)
+            zeroSlotAfter := mload(0x60)
+        }
+        assertEq(freeMemoryPointerAfter, freeMemoryPointerBefore);
+        assertEq(zeroSlotAfter, zeroSlotBefore);
+        assertEq(hash, bytes32(0xe90b7bceb6e7df5418fb78d8ee546e97c83a08bbccc01a0644d599ccd2a7c2e0));
+    }
+
     function testHashWordsEmpty() public pure {
         assertEq(LibHashNoAlloc.hashWords(new bytes32[](0)), HASH_NIL);
+    }
+
+    function testHashWordsNoAlloc() public pure {
+        bytes32[] memory words = new bytes32[](2);
+        words[0] = bytes32(uint256(1));
+        words[1] = bytes32(uint256(2));
+        uint256 freeMemoryPointerBefore;
+        uint256 zeroSlotBefore;
+        assembly ("memory-safe") {
+            freeMemoryPointerBefore := mload(0x40)
+            zeroSlotBefore := mload(0x60)
+        }
+        bytes32 hash = LibHashNoAlloc.hashWords(words);
+        uint256 freeMemoryPointerAfter;
+        uint256 zeroSlotAfter;
+        assembly ("memory-safe") {
+            freeMemoryPointerAfter := mload(0x40)
+            zeroSlotAfter := mload(0x60)
+        }
+        assertEq(freeMemoryPointerAfter, freeMemoryPointerBefore);
+        assertEq(zeroSlotAfter, zeroSlotBefore);
+        assertEq(hash, bytes32(0xe90b7bceb6e7df5418fb78d8ee546e97c83a08bbccc01a0644d599ccd2a7c2e0));
     }
 
     function testHashWordsGas0() public pure {
@@ -70,6 +138,25 @@ contract LibHashNoAllocTest is Test {
 
     function testCombineHashes(bytes32 a, bytes32 b) public pure {
         assertEq(LibHashNoAlloc.combineHashes(a, b), LibHashSlow.combineHashesSlow(a, b));
+    }
+
+    function testCombineHashesNoAlloc() public pure {
+        uint256 freeMemoryPointerBefore;
+        uint256 zeroSlotBefore;
+        assembly ("memory-safe") {
+            freeMemoryPointerBefore := mload(0x40)
+            zeroSlotBefore := mload(0x60)
+        }
+        bytes32 hash = LibHashNoAlloc.combineHashes(bytes32(uint256(1)), bytes32(uint256(2)));
+        uint256 freeMemoryPointerAfter;
+        uint256 zeroSlotAfter;
+        assembly ("memory-safe") {
+            freeMemoryPointerAfter := mload(0x40)
+            zeroSlotAfter := mload(0x60)
+        }
+        assertEq(freeMemoryPointerAfter, freeMemoryPointerBefore);
+        assertEq(zeroSlotAfter, zeroSlotBefore);
+        assertEq(hash, bytes32(0xe90b7bceb6e7df5418fb78d8ee546e97c83a08bbccc01a0644d599ccd2a7c2e0));
     }
 
     function testCombineHashesGas0() public pure {

@@ -227,9 +227,6 @@ The memory layout of data in Solidity is very regular across all data types.
 
 https://docs.soliditylang.org/en/v0.8.19/internals/layout_in_memory.html
 
-It is optimised so that the allocator always has the free memory pointer at a
-multiple of 32.
-
 Note that the memory layout is completely different to e.g. the storage layout.
 Everything discussed here is specific to data in memory and does not generalise
 at all.
@@ -239,9 +236,6 @@ All non-struct types end up in one of 3 buckets:
 - 1 or more 32 byte words, of `length` defined by the type
 - A 32 byte `length` followed by `length` 32 byte words (most dynamic types)
 - A 32 byte `length` followed by `length` bytes (`bytes` and `string` only)
-
-Note that in the last case, the allocator will still move the free memory pointer
-to a multiple of 32 bytes even if that points past the end of the data structure.
 
 The variables and structs that reference these things are pointers to them, or
 even nested pointers in the case of structs. The pointers can be either on the
@@ -354,13 +348,15 @@ additional metadata about our words.
 #### Hashing dynamic length byte strings
 
 The two byte length types `bytes` and `string` are the only types in Solidity
-that may not have whole-world lengths. Even though the allocator retains a
-multiple of 0x20 on the free memory pointer, we MUST respect the true length of
-`bytes` and `string` in bytes, otherwise we introduce ambiguity.
+that may not have whole-word lengths. We MUST respect the true length of `bytes`
+and `string` in bytes, otherwise we introduce ambiguity.
 
-If we did not respect the length then `hex"01"` and `hex"0100"` would hash to
-the same value, as they both have 0x20 bytes _allocated_ to them in memory, even
-though the first is 1 byte and the second is 2 bytes in _length_.
+If we rounded the length up to whole words instead then `hex"01"` and
+`hex"0100"` would hash the same word, `0x01` followed by 31 zero bytes, when
+nothing has been written past them, even though the first is 1 byte and the
+second is 2 bytes in _length_. Hashing exactly `length` bytes reads nothing past
+the end of the data, so the pattern never depends on what the allocator does
+beyond it, including where it leaves the free memory pointer.
 
 The assembly for this is actually simpler than dealing with words as we do not
 need to convert between length/bytes. It is the same for `string` and `bytes`.

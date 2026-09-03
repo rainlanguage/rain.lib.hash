@@ -45,7 +45,8 @@ struct SubWord {
     bytes4 b;
 }
 
-/// The memory-layout claims README.md makes about struct members, read back
+/// How Solidity lays out struct members, nested structs, dynamic members and
+/// `new` byte allocations in memory: each fact is read back
 /// from memory with `mload` and checked against the word Solidity's own type
 /// conversions produce for the same value.
 contract MemoryLayoutTest is Test {
@@ -284,7 +285,7 @@ contract MemoryLayoutTest is Test {
         assertEq(w3, dPtr);
     }
 
-    /// The allocator rounds `bytes` up to whole words: `new bytes(1)` moves
+    /// `new bytes(n)` allocates whole words: `new bytes(1)` moves
     /// the free memory pointer by 0x40 and `new bytes(33)` by 0x60 (the length
     /// word plus the length rounded up to a multiple of 0x20), while the
     /// length word stays 1 and 33.

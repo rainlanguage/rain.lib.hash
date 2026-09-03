@@ -48,7 +48,7 @@ struct SubWord {
 /// The memory-layout claims README.md makes about struct members, read back
 /// from memory with `mload` and checked against the word Solidity's own type
 /// conversions produce for the same value.
-contract ReadmeMemoryLayoutTest is Test {
+contract MemoryLayoutTest is Test {
     /// Values for the members a test is not reading. Each is a distinct
     /// non-zero word, so a read at the wrong offset does not match the word
     /// expected for the member under test.

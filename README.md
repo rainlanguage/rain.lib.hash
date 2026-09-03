@@ -293,7 +293,7 @@ For example, we could hash a `foo_` as above like so
 
 ```solidity
 assembly ("memory-safe") {
-    let hash_ := keccak256(foo_, add(foo_, 0x80))
+    let hash_ := keccak256(foo_, 0x80)
 }
 ```
 
@@ -411,10 +411,10 @@ As assembly it would look like
 assembly ("memory-safe") {
     // hash foo_.a and foo_.b together to produce hash A
     // store A in scratch
-    mstore(0, keccak256(foo_, add(foo_, 0x40)))
+    mstore(0, keccak256(foo_, 0x40))
 
     // Follow the pointer to hash foo_.c into B
-    let deref_ := mload(add(foo_, 0x60))
+    let deref_ := mload(add(foo_, 0x40))
     // Store B in scratch
     mstore(0x20, keccak256(add(deref_, 0x20), mul(mload(deref_), 0x20)))
 
@@ -422,7 +422,7 @@ assembly ("memory-safe") {
     mstore(0, keccak256(0, 0x40))
 
     // Follow the pointer to hash foo_.d
-    deref_ := mload(add(foo_, 0x80))
+    deref_ := mload(add(foo_, 0x60))
     // Store D in scratch
     mstore(0x20, keccak256(add(deref_, 0x20), mload(deref_)))
 

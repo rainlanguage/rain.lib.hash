@@ -1,7 +1,5 @@
 # rain.lib.hash
 
-Docs at https://rainprotocol.github.io/rain.lib.hash
-
 ## Problem
 
 When producing hashes of just about anything that isn't already `bytes` the
@@ -195,7 +193,7 @@ This saving is of course most noticeable when the algorithm is relatively
 efficient, or involves a tight internal loop over encoding, such that the
 encoding then starts to dominate the profile. Even in cases where that is not
 true, such as comparing the reference SSTORE2 implementation to
-[LibDataContract](https://github.com/rainprotocol/sol.lib.datacontract/blob/main/src/LibDataContract.sol) we still can see 1k+ gas savings per-write for common usage patterns, with
+[LibDataContract](https://github.com/rainlanguage/rain.datacontract/blob/main/src/lib/LibDataContract.sol) we still can see 1k+ gas savings per-write for common usage patterns, with
 identical outcomes.
 
 It really just seems to come down to the fact that memory expansion and bulk
@@ -488,13 +486,14 @@ one exists for `abi.encode` either :)
 
 Uses nixos.
 
-Install `nix develop` - https://nixos.org/download.html.
+Install `nix` - https://nixos.org/download.html.
 
 Run `nix develop` in this repo to drop into the shell. Please ONLY use the nix
 version of `foundry` for development, to ensure versions are all compatible.
 
-Read the `flake.nix` file to find some additional commands included for dev and
-CI usage.
+The commands CI runs live in the shared `rainix-sol` workflow at
+https://github.com/rainlanguage/rainix, which `.github/workflows/rainix-sol.yaml`
+calls; `flake.nix` only re-exports the rainix packages and dev shells.
 
 ## Legal stuff
 
@@ -517,7 +516,7 @@ This repo is REUSE 3.2 compliant https://reuse.software/spec-3.2/ and compatible
 with `reuse` tooling (also available in the nix shell here).
 
 ```
-nix develop -c rainix-sol-legal
+nix develop -c reuse lint
 ```
 
 ## Contributions

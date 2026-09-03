@@ -70,11 +70,17 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 /// allocates a fresh 3-word buffer, copies the three fields into it and bumps
 /// the free memory pointer, then pays the same hash; the encoding step alone
 /// costs more gas than the whole in-place hash.
+///
+/// The functions taking a memory reference read the length word the type
+/// guarantees; a reference whose length word does not describe its allocation
+/// is a memory-safety violation by the caller and, like all such violations,
+/// undefined.
 library LibHashNoAlloc {
     /// Hash bytes. Solidity's own `keccak256(data)` already compiles to this
     /// same `keccak256(add(data, 0x20), mload(data))` with no allocation, so
     /// this saves nothing over it and exists only so `bytes` hash through the
     /// same API as words.
+    /// Hashes the `mload(data)` bytes starting at `data + 0x20`.
     /// @param data The bytes to hash.
     /// @return hash The keccak256 hash of the bytes.
     function hashBytes(bytes memory data) internal pure returns (bytes32 hash) {
@@ -84,6 +90,7 @@ library LibHashNoAlloc {
     }
 
     /// Hash an array of bytes32 words without allocating memory.
+    /// Hashes the `mload(words) * 0x20` bytes starting at `words + 0x20`.
     /// @param words The words to hash.
     /// @return hash The keccak256 hash of the words.
     function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
@@ -93,6 +100,7 @@ library LibHashNoAlloc {
     }
 
     /// Hash an array of uint256 words without allocating memory.
+    /// Hashes the `mload(words) * 0x20` bytes starting at `words + 0x20`.
     /// @param words The words to hash.
     /// @return hash The keccak256 hash of the words.
     function hashWords(uint256[] memory words) internal pure returns (bytes32 hash) {

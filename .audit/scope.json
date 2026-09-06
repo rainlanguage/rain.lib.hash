@@ -1,0 +1,35 @@
+{
+  "auditedAt": "2026-09-06T19:47:31Z",
+  "auditedCommit": "1e6e59f3d1fc4fd30c86a5836aa156eed382e729",
+  "files": [
+    "audit/mutation-test-scans.json",
+    "audit/protofire/rain.lib.hash.33e17004ed6f9248d5cbb139c93da7190770c1f4.feb-2026.pdf",
+    "flake.lock",
+    "flake.nix",
+    "foundry.toml",
+    ".github/workflows/package-release.yaml",
+    ".github/workflows/rainix-sol.yaml",
+    ".gitignore",
+    "LICENSE",
+    "LICENSES/LicenseRef-DCL-1.0.txt",
+    "README.md",
+    "REUSE.toml",
+    "slither.config.json",
+    ".soldeerignore",
+    "soldeer.lock",
+    "src/LibHashNoAlloc.sol",
+    "test/HashPatternFold.t.sol",
+    "test/HashPattern.t.sol",
+    "test/LibHashNoAllocCrossType.t.sol",
+    "test/LibHashNoAlloc.t.sol",
+    "test/LibHashSlow.sol",
+    "test/MemoryLayout.t.sol",
+    ".vscode/settings.json"
+  ],
+  "countsByLanguage": {
+    "solidity": 7,
+    "rust": 0,
+    "typescript": 0,
+    "svelte": 0
+  }
+}

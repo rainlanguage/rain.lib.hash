@@ -70,7 +70,11 @@ less of a concern due to their context/usage.
 ### Encoding and cryptography
 
 An earlier version of the EIP712 spec outlined the difficulty in relying on
-encoding formats to provide cryptographic guarantees.
+encoding formats to provide cryptographic guarantees, under the headings
+"Signatures and Hashing overview" and "Transactions and bytestrings" in the
+revision that moved the EIP to Final.
+
+https://github.com/ethereum/EIPs/blob/c2e19a6ba0dda0e6fbf846b62e3711d3bc2ebbed/EIPS/eip-712.md
 
 > A good hashing algorithm should satisfy security properties such as
 > determinism, second pre-image resistance and collision resistance. The
@@ -91,8 +95,13 @@ encoding formats to provide cryptographic guarantees.
 > - encode(t : 𝕋) = RLP_encode(t)
 > - encode(b : 𝔹⁸ⁿ) = b
 >
-> encode(b : 𝔹⁸ⁿ) = "\x19Ethereum Signed Message:\n" ‖ len(b) ‖ b where len(b) is
-> the ascii-decimal encoding of the number of bytes in b.
+> While individually they satisfy the required properties, together they do not.
+> If we take b = RLP_encode(t) we have a collision. This is mitigated in
+> ethereum/go-ethereum#2940 by modifying the second leg of the encoding
+> function:
+>
+> - encode(b : 𝔹⁸ⁿ) = "\x19Ethereum Signed Message:\n" ‖ len(b) ‖ b where len(b)
+>   is the ascii-decimal encoding of the number of bytes in b.
 >
 > This solves the collision between the legs since RLP_encode(t : 𝕋) never starts
 > with \x19. There is still the risk of the new encoding function not being
@@ -480,6 +489,13 @@ identically. Concretely, with the reference implementation:
   prefix.
 - `hashBytes` over empty bytes, `hashWords` over an empty list and the fold
   over an empty list of pointers of any type are all the nil hash.
+- A struct whose fields are all pointers has no data before its first
+  pointer, so "Handling pointers" starts it from the nil hash and builds the
+  same tree the fold builds: `struct { bytes d1; bytes d2; }` hashes as the
+  `bytes[]` `[d1, d2]` for every value, and in general an `n`-field struct of
+  `T` pointer fields hashes as an `n`-item `T[]`. Unlike the others this is a
+  whole-type collision: it holds for every value of both types, not just
+  where their hashed bytes happen to coincide.
 
 None of these is a collision within a type, so none of them touches the
 induction above. They bite the moment the restriction is dropped: if one hash

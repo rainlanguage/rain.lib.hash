@@ -139,6 +139,7 @@ contract MemoryLayoutTest is Test {
     /// `uint256(int256(x))`, not the zero-padded `uint256(uint8(x))`.
     function testSignedIntIsSignExtended(int8 x) public pure {
         SubWord memory s = SubWord(true, ADDR, U, Colour.Green, x, B);
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(word(s, 0x80), uint256(int256(x)));
     }
 

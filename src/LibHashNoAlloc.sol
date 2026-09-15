@@ -8,12 +8,8 @@ pragma solidity ^0.8.25;
 bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
 
 /// @title LibHashNoAlloc
-/// @notice Reference implementation of the no-allocation hashing pattern
-/// specified in this repo's README ("The pattern" and "Security of
-/// composition", https://github.com/rainlanguage/rain.lib.hash#the-pattern).
-/// Every function hashes raw memory with no type, length or domain tag; hashes
-/// are only comparable with hashes of values of the same type, and each
-/// function's notes below list what collides across types.
+/// @notice Hashes raw memory with no type, length or domain tag, so a hash is
+/// only ever comparable with hashes of values of the same type.
 ///
 /// The functions taking a memory reference read the length word the type
 /// guarantees; a reference whose length word does not describe its allocation

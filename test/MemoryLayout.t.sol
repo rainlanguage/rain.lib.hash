@@ -429,10 +429,6 @@ contract MemoryLayoutTest is Test {
         }
     }
 
-    /// ALWAYS 4 words: whatever the members hold, the `uint256[]` and `bytes`
-    /// are still one pointer word each, so the struct allocates 0x80 and
-    /// nothing more. `c` and `d` arrive already allocated by the decoder, so
-    /// the struct is the only allocation in the window.
     function testFooIsFourWordsWhateverItsMembersHold(uint256 a, address b, uint256[] memory c, bytes memory d)
         public
         pure

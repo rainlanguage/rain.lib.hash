@@ -79,7 +79,6 @@ contract LibHashNoAllocCrossTypeTest is Test {
         assertEq(LibHashNoAlloc.hashWords(new uint256[](0)), HASH_NIL);
     }
 
-    /// The `start` up to but excluding `end` bytes of `data`.
     function slice(bytes memory data, uint256 start, uint256 end) internal pure returns (bytes memory) {
         bytes memory out = new bytes(end - start);
         for (uint256 i = 0; i < out.length; i++) {
@@ -88,13 +87,9 @@ contract LibHashNoAllocCrossTypeTest is Test {
         return out;
     }
 
-    /// The library's motivating claim: any two splits of one byte string pack
-    /// to that same string, so `abi.encodePacked` cannot tell them apart, while
-    /// `abi.encode` and the hash-of-hashes composition both can.
     function testCompositionSeparatesPackedCollision(bytes memory s, uint256 i, uint256 j) public pure {
         uint256 n = s.length;
         vm.assume(n > 0);
-        // Two distinct split points in `[0, n]`, without rejecting any sample.
         uint256 x = i % (n + 1);
         uint256 y = j % n;
         if (y >= x) {
@@ -118,9 +113,6 @@ contract LibHashNoAllocCrossTypeTest is Test {
         assertTrue(composedX != composedY);
     }
 
-    /// The NatSpec's own example. Every constant is `cast keccak` of the bytes
-    /// named beside it, so the composed values are fixed independently of the
-    /// library.
     function testCompositionSeparatesAbcDef() public pure {
         assertEq(abi.encodePacked(bytes("abc"), bytes("def")), abi.encodePacked(bytes("ab"), bytes("cdef")));
         assertTrue(
@@ -145,9 +137,6 @@ contract LibHashNoAllocCrossTypeTest is Test {
         assertTrue(composedAbcDef != composedAbCdef);
     }
 
-    /// A one-word list IS the hash of its bare word through every entry point,
-    /// unlike the nil-seeded fold of a one-item list of pointers, which is
-    /// `hash(nil + hash(x))`.
     function testSingletonWordListIsItsWord(bytes32 x) public pure {
         bytes32[] memory words = new bytes32[](1);
         words[0] = x;

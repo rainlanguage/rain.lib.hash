@@ -179,7 +179,6 @@ contract HashPatternTest is Test {
         assertEq(hashTwo_, keccak256(hex"0100"));
     }
 
-    /// The "Handling pointers" example: the prose steps A to E over one `Foo`.
     function hashFooExample(Foo memory foo_) internal pure returns (bytes32) {
         bytes32 e;
         assembly ("memory-safe") {
@@ -206,9 +205,6 @@ contract HashPatternTest is Test {
         return e;
     }
 
-    /// The same steps A to E in plain Solidity: A is the first two words, B is
-    /// the word list `c`, C combines A and B, D is the bytes `d`, E combines C
-    /// and D. Nothing here reads a pointer.
     function hashFooSteps(Foo memory foo) internal pure returns (bytes32) {
         bytes32 hashA = keccak256(abi.encode(foo.a, foo.b));
         bytes32 hashB = keccak256(abi.encodePacked(foo.c));
@@ -217,9 +213,6 @@ contract HashPatternTest is Test {
         return keccak256(abi.encodePacked(hashC, hashD));
     }
 
-    /// "Handling pointers": the prose steps A to E over `Foo`. A is the first
-    /// two words, B is the word list `c`, C combines A and B, D is the bytes
-    /// `d`, E combines C and D.
     function testHandlingPointers(uint256 a, address b, uint256[] memory c, bytes memory d) public pure {
         Foo memory foo_ = Foo(a, b, c, d);
         bytes32 e = hashFooExample(foo_);
@@ -232,10 +225,6 @@ contract HashPatternTest is Test {
         assertEq(e, hashE);
     }
 
-    /// "Handling pointers": "a pointer ... is not even deterministic". Two
-    /// `Foo`s with equal members at different addresses hash APART as a raw
-    /// 4-word region, because two of those words are their pointers, and
-    /// TOGETHER once the pointers are followed instead of hashed.
     function testEqualFoosHashApartByRegionAndTogetherByComposition(
         uint256 a,
         address b,
@@ -264,7 +253,6 @@ contract HashPatternTest is Test {
             regionFirst := keccak256(first, 0x80)
             regionSecond := keccak256(second, 0x80)
         }
-        // The members are equal and the addresses holding them are not.
         assertEq(keccak256(abi.encode(first.a, first.b, first.c, first.d)), keccak256(abi.encode(a, b, c, d)));
         assertEq(keccak256(abi.encode(second.a, second.b, second.c, second.d)), keccak256(abi.encode(a, b, c, d)));
         assertTrue(firstC != secondC);
@@ -276,9 +264,6 @@ contract HashPatternTest is Test {
         assertEq(hashFooSteps(first), hashFooSteps(second));
     }
 
-    /// "single byte values `bytes1[]`" are a word list: the word-list example
-    /// hashes the `length` left-aligned words after the prefix, which is what
-    /// `abi.encodePacked` of a `bytes1[]` lays out.
     function testHashBytes1ArrayAsWordList(bytes1[] memory bar_) public pure {
         bytes32 hash_;
         assembly ("memory-safe") {

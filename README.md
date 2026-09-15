@@ -44,12 +44,20 @@ it gives us the security guarantees that the contract needs. If the hash is
 needed to be known offchain, e.g. so it can be passed back to a future call on
 the contract, then the contract can emit the hash into the logs etc.
 
-We are even fine with changing the patterns described in this document over time.
-There's no requirement that a hash produced by one contract is compatible with
-the hash produced by another. Our goal is that contracts implementing these
-patterns can securely accept arbitrary inputs of the types they are written
-for (see "Security of composition" below), NOT that the basic approach
-ossifies due to unrelated contracts doing different things to each other.
+The bytes each function in `LibHashNoAlloc` hashes are its API, not an internal
+detail. `hashBytes` hashes the `length` bytes of its argument, `hashWords` the
+`32n` bytes of its `n` words, and `combineHashes` the 64 bytes of `a` followed
+by `b`, exactly as each function's NatSpec states and known answer tests pin.
+Offchain signers reproduce those bytes to produce signatures that consumers
+verify onchain, so changing any preimage is a major version (see "Releases"
+below), never a patch.
+
+The pattern itself promises nothing across contracts. There's no requirement
+that a hash produced by one contract is compatible with the hash produced by
+another. Our goal is that contracts implementing these patterns can securely
+accept arbitrary inputs of the types they are written for (see "Security of
+composition" below), NOT that the basic approach ossifies due to unrelated
+contracts doing different things to each other.
 
 **That is to say, there's no "upgradeable contract" support.**
 
@@ -550,6 +558,33 @@ version of `foundry` for development, to ensure versions are all compatible.
 The commands CI runs live in the shared `rainix-sol` workflow at
 https://github.com/rainlanguage/rainix, which `.github/workflows/rainix-sol.yaml`
 calls; `flake.nix` only re-exports the rainix packages and dev shells.
+
+### Releases
+
+`.github/workflows/package-release.yaml` calls the shared `rainix-autopublish`
+workflow at https://github.com/rainlanguage/rainix on every push to `main`. That
+workflow owns the rules; what follows is only what they mean here.
+
+The Soldeer package is `rain-lib-hash`. A push publishes when the content of the
+`forge soldeer push --dry-run` payload differs from the newest published
+revision. Anything under `src/generated/` and any `[package]` block in
+`foundry.toml` are excluded from that comparison, so neither can trigger a
+publish. The registry is the version ledger: `foundry.toml` deliberately carries
+no version and no `[package]` section, and release metadata must not be re-added
+to it.
+
+The published version is the patch bump of the newest published revision, unless
+a `next-v<x.y.z>` tag naming a higher version is merged into the pushed `main`
+head, in which case that version is published. A minor or major bump is ONLY a
+`next-v` tag: push it on the commit that defines that version's content, before
+that commit lands on `main`. A change to what any function in `LibHashNoAlloc`
+hashes is a major version, so it needs a `next-v<major>.0.0` tag.
+
+Each publish tags its own commit `sol-v<x.y.z>` and creates a matching GitHub
+release. `v0.1.0` predates the pipeline: it is an annotated tag for a manual
+publish and has no GitHub release. `sol-v0.1.1` onwards are the pipeline's tags,
+so both the tag list and the Releases page begin at 0.1.1 even though 0.1.0 is a
+published revision of the same series.
 
 ## Legal stuff
 

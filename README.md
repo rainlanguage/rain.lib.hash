@@ -375,9 +375,10 @@ beyond it, including where it leaves the free memory pointer.
 The assembly for this is actually simpler than dealing with words as we do not
 need to convert between length/bytes: skip the length prefix as above, then take
 the length prefix as the count of bytes it already is. It is the same for
-`string` and `bytes`. `testHashBytes` and `testHashString` in
-`test/HashPattern.t.sol` are that assembly over each type, and
-`testBytesTrueLength` is the `hex"01"` / `hex"0100"` pair above.
+`string` and `bytes`. `testHashBytesExampleIsKeccakOfBytes` and
+`testHashStringExampleIsKeccakOfBytes` in `test/HashPattern.t.sol` are that
+assembly over each type, and `testBytesTrueLength` is the `hex"01"` /
+`hex"0100"` pair above.
 
 Note that pointers never appear in `bytes` nor `string`, or if they do, they are
 not going to be dereferenced by our hashing logic. That single `keccak256` is
@@ -413,8 +414,8 @@ Using our `Foo` struct from above as an example this would look like:
 - Write `C` and `D` to scratch space as above
 - Hash the scratch space to produce `E`, which is our final hash of `Foo`
 
-`testHandlingPointers` in `test/HashPattern.t.sol` is those steps as assembly,
-checked against A to E rebuilt with `abi.encode`.
+`testStructWithPointersHashesAsNestedNodes` in `test/HashPattern.t.sol` is those
+steps as assembly, checked against A to E rebuilt with `abi.encode`.
 
 If we had a list of pointers, such as a `Foo[]` then this would be modelled as
 a simple fold/reduce-style accumulator, seeded with the nil hash (see below),

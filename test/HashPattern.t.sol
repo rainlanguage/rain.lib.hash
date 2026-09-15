@@ -112,13 +112,13 @@ contract HashPatternTest is Test {
 
     /// "Hashing dynamic length byte strings": the `length` bytes after the
     /// length prefix, i.e. `keccak256` of the bytes themselves.
-    function testHashBytes(bytes memory baz_) public pure {
+    function testHashBytesExampleIsKeccakOfBytes(bytes memory baz_) public pure {
         assertEq(hashBytesExample(baz_), keccak256(baz_));
     }
 
     /// "It is the same for `string` and `bytes`": the same example over a
     /// `string` is `keccak256` of the string's bytes.
-    function testHashString(string memory baz_) public pure {
+    function testHashStringExampleIsKeccakOfBytes(string memory baz_) public pure {
         assertEq(hashBytesExample(bytes(baz_)), keccak256(bytes(baz_)));
     }
 
@@ -148,7 +148,10 @@ contract HashPatternTest is Test {
 
     /// "Handling pointers": the prose steps A to E over `Foo`, as
     /// `LibFooOracle.hashFoo` spells them out.
-    function testHandlingPointers(uint256 a, address b, uint256[] memory c, bytes memory d) public pure {
+    function testStructWithPointersHashesAsNestedNodes(uint256 a, address b, uint256[] memory c, bytes memory d)
+        public
+        pure
+    {
         Foo memory foo_ = Foo(a, b, c, d);
         bytes32 e;
         assembly ("memory-safe") {

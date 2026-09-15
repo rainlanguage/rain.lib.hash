@@ -45,6 +45,27 @@ struct SubWord {
     bytes4 b;
 }
 
+/// A one-field struct: a reference type that is exactly one word wide.
+struct One {
+    uint256 v;
+}
+
+/// Three reference members that are each exactly one word wide. Each is one
+/// pointer word of the `OneWordRefs`, so it is 4 words like `Foo`.
+struct OneWordRefs {
+    uint256 x;
+    uint256[1] arr;
+    One one;
+    bytes32[1] barr;
+}
+
+/// A static array member wider than one word: one pointer word, not two
+/// inlined words.
+struct WithStaticArray {
+    uint256 x;
+    uint256[2] arr;
+}
+
 /// How Solidity lays out struct members, nested structs, dynamic members and
 /// `new` byte allocations in memory: each fact is read back
 /// from memory with `mload` and checked against the word Solidity's own type
@@ -283,6 +304,75 @@ contract MemoryLayoutTest is Test {
         }
         assertEq(w2, cPtr);
         assertEq(w3, dPtr);
+    }
+
+    /// Reference members that are exactly one word wide are still pointer
+    /// words: an `OneWordRefs` is 4 words, and words 1 to 3 are the pointers
+    /// Solidity holds for the `uint256[1]`, the one-field `One` and the
+    /// `bytes32[1]`, not the single values 7, 8 and 9 they hold.
+    function testOneWordReferenceMembersArePointerWords(uint256 x) public pure {
+        uint256[1] memory arr = [uint256(7)];
+        One memory one = One(8);
+        bytes32[1] memory barr = [bytes32(uint256(9))];
+        // Scratch for the words read back, allocated before the struct so the
+        // struct is the only allocation between the two free memory pointer
+        // reads.
+        uint256[4] memory w;
+        uint256[3] memory p;
+        uint256 fmpBefore;
+        assembly ("memory-safe") {
+            fmpBefore := mload(0x40)
+        }
+        OneWordRefs memory s = OneWordRefs(x, arr, one, barr);
+        uint256 ptr;
+        uint256 size;
+        assembly ("memory-safe") {
+            ptr := s
+            size := sub(mload(0x40), s)
+            mstore(p, arr)
+            mstore(add(p, 0x20), one)
+            mstore(add(p, 0x40), barr)
+            mstore(w, mload(s))
+            mstore(add(w, 0x20), mload(add(s, 0x20)))
+            mstore(add(w, 0x40), mload(add(s, 0x40)))
+            mstore(add(w, 0x60), mload(add(s, 0x60)))
+        }
+        assertEq(ptr, fmpBefore);
+        assertEq(size, 0x80);
+        assertEq(w[0], x);
+        assertEq(w[1], p[0]);
+        assertEq(w[2], p[1]);
+        assertEq(w[3], p[2]);
+        assertNotEq(w[1], 7);
+        assertNotEq(w[2], 8);
+        assertNotEq(w[3], 9);
+    }
+
+    /// A static array member is one pointer word whatever its length: a
+    /// `WithStaticArray` is 2 words and its second word is the pointer
+    /// Solidity holds for the `uint256[2]`, not the array's 2 words inlined.
+    function testStaticArrayMemberIsPointerWord(uint256 x, uint256[2] memory arr) public pure {
+        uint256 fmpBefore;
+        assembly ("memory-safe") {
+            fmpBefore := mload(0x40)
+        }
+        WithStaticArray memory s = WithStaticArray(x, arr);
+        uint256 ptr;
+        uint256 size;
+        uint256 arrPtr;
+        uint256 w0;
+        uint256 w1;
+        assembly ("memory-safe") {
+            ptr := s
+            size := sub(mload(0x40), s)
+            arrPtr := arr
+            w0 := mload(s)
+            w1 := mload(add(s, 0x20))
+        }
+        assertEq(ptr, fmpBefore);
+        assertEq(size, 0x40);
+        assertEq(w0, x);
+        assertEq(w1, arrPtr);
     }
 
     /// `new bytes(n)` allocates whole words: `new bytes(1)` moves

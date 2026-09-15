@@ -68,9 +68,6 @@ contract HashPatternTest is Test {
 
     /// "Lists of pointers like `Foo[]`" are word lists: a length prefix then
     /// one word per element, each word the pointer to that element's `Foo`.
-    /// `new Foo[](length)` allocates the 0x20 + length * 0x20 list first and
-    /// then one 0x80 zero-initialised `Foo` per element, so the first `Foo`
-    /// starts exactly where the list ends.
     function testFooListIsWordList(uint8 length8) public pure {
         uint256 length = length8;
         uint256 fmpBefore;

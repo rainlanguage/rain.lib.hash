@@ -11,8 +11,6 @@ import {LibHashNoAlloc, HASH_NIL} from "../src/LibHashNoAlloc.sol";
 /// the same type. Any change that tags leaves, nodes or types breaks these
 /// tests and the README "Security of composition" section with them.
 contract LibHashNoAllocCrossTypeTest is Test {
-    /// A `bytes` leaf whose content is two hashes is the node built from those
-    /// hashes: `hashBytes(hash(left) then hash(right))` is `combineHashes(hash(left), hash(right))`.
     function testLeafNodeCollision(bytes memory left, bytes memory right) public pure {
         bytes32 leftHash = LibHashNoAlloc.hashBytes(left);
         bytes32 rightHash = LibHashNoAlloc.hashBytes(right);

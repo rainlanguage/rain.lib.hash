@@ -49,7 +49,6 @@ contract HashPatternFoldTest is Test {
         }
     }
 
-    /// The first `count` items of `pool` as a `Foo[]`.
     function take(Foo[4] memory pool, uint256 count) internal pure returns (Foo[] memory foos) {
         foos = new Foo[](count);
         for (uint256 i = 0; i < count; i++) {
@@ -57,10 +56,6 @@ contract HashPatternFoldTest is Test {
         }
     }
 
-    /// The README's step-by-step letters over `foos[0]` and `foos[1]`:
-    /// `nilHash` is N, `hashFoo0` is A, `foldOne` is B (N then A), `hashFoo1`
-    /// is C and `foldTwo` is D (B then C). `foldOne` is the fold of the first
-    /// item alone and `foldTwo` the fold of both.
     function testFoldLetters(Foo memory foo0, Foo memory foo1) public pure {
         Foo[] memory foos = new Foo[](2);
         foos[0] = foo0;
@@ -97,8 +92,6 @@ contract HashPatternFoldTest is Test {
         assertEq(foldPattern(foos), HASH_NIL);
     }
 
-    /// README "Nil hash prefix": a one-item list folds to `hash(nil + hash(item))`,
-    /// which is not `hash(item)`.
     function testFoldSingletonIsNotItem(Foo memory item) public pure {
         Foo[] memory foos = new Foo[](1);
         foos[0] = item;

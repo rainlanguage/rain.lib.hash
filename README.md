@@ -269,8 +269,11 @@ sign-extended, so the word is `uint256(int256(x))`: `int8(-1)` is `0xff…ff`, n
 is `uint256(bytes32(x))`: `bytes4(0x01020304)` is `0x01020304` followed by 28
 zero bytes, not `0x00…01020304`. The hash is of the word as laid out.
 
-Any types that are larger, or potentially larger than 1 word are pointers to that
-data, from the perspective of the struct.
+Reference types (arrays of any length including static ones such as
+`uint256[1]`, structs of any size including a single field, `bytes` and
+`string`) are pointers to that data, from the perspective of the struct. Only
+value types are laid out inline. Size does not decide it: a `uint256[1]` member
+is exactly one word and is still a pointer word.
 
 This logic is applied recursively.
 
@@ -363,9 +366,8 @@ It would be pointless to hash pointers (no pun intended). A pointer is merely an
 offset in memory, which has very little to do with the data on the other side of
 it, and is not even deterministic.
 
-We find pointers in Solidity wherever something that is potentially larger than
-1 word needs to fit in a single word slot. For example, any time a struct or
-dynamic type is an item or field in another struct or dynamic type.
+We find pointers in Solidity wherever a reference type (array, struct, `bytes`,
+`string`) is an item or field in another struct or list, whatever its size.
 
 Solidity does not allow mixed type lists so all pointers are at least found in
 predictable positions. We always know at compile time whether something is a

@@ -4,14 +4,6 @@ pragma solidity ^0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 
-/// `audit/mutation-test-scans.json` is appended by hand, and two automated
-/// consumers trust the SHAs it records: the audit skill's Pass-2 gate and the
-/// org health scanner. Neither rejects a malformed file loudly, so this pins
-/// the shape of every record instead.
-///
-/// `testsAfterCommit` is required here but is repo-local: other rain ledgers
-/// (raindex's, for one) do not carry the field, so this test is not portable
-/// as written.
 contract MutationLedgerTest is Test {
     string constant LEDGER = "audit/mutation-test-scans.json";
     string constant TOOL = "adversarial-mutation-test";
@@ -32,7 +24,6 @@ contract MutationLedgerTest is Test {
         return true;
     }
 
-    /// `YYYY-MM-DDTHH:MM:SSZ` exactly, where `d` in the mask is any digit.
     function isUtcTimestamp(string memory s) internal pure returns (bool) {
         bytes memory b = bytes(s);
         bytes memory mask = bytes("dddd-dd-ddTdd:dd:ddZ");
@@ -54,8 +45,7 @@ contract MutationLedgerTest is Test {
     function testLedgerRecordShape() external view {
         string memory json = vm.readFile(string.concat(vm.projectRoot(), "/", LEDGER));
 
-        // A trailing comma or any other syntax error makes the cheatcode
-        // revert; a bare object has no `[0]`.
+        // A syntax error makes the cheatcode revert; a bare object has no `[0]`.
         assertTrue(vm.keyExistsJson(json, "[0]"), "ledger must be a non-empty array");
 
         uint256 i = 0;

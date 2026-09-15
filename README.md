@@ -164,12 +164,17 @@ overall prefix to the encoded data.
 https://docs.soliditylang.org/en/develop/abi-spec.html#formal-specification-of-the-encoding
 
 Importantly, in light of the discussion in EIP712, the lengths are fixed length
-themselves, always represented as a `uint256`, so the full `abi.encode` encoding
-of the underlying data is probably safe.
+themselves, always represented as a `uint256`. The canonical encoding of one
+fixed type tuple is decodable, and that is the whole argument for it: as
+`abi.decode` recovers the value, two different values of that type cannot share
+an encoding.
 
 So `abi.encode` doesn't have the problems of `abi.encodePacked` nor early geth
-implementations, but is that a strong proof that it doesn't introduce new
-problems?
+implementations. What it does not give is injectivity ACROSS types:
+`abi.encode(uint8(1))`, `abi.encode(uint256(1))`, `abi.encode(true)` and
+`abi.encode(address(1))` are all the same 32 bytes. That is the same "one hash
+domain, one type" restriction the pattern below carries, so the case for the
+pattern is cost, not a stronger guarantee.
 
 #### Gas cost of encoding
 
@@ -559,8 +564,10 @@ separation, e.g. hash a per-type constant into the composition the way EIP712
 hashes a type hash into every struct hash. The reference implementation adds
 none.
 
-I'm not sure this constitutes a formal mathematical proof, but I'm not sure if
-one exists for `abi.encode` either :)
+Whatever this induction is worth as a formal proof, the same is available for
+`abi.encode`: decodability gives it injectivity per type, and neither argument
+reaches past one type. The pattern gets there without producing the encoding,
+which is where the saving is.
 
 #### Implementing and testing the pattern
 

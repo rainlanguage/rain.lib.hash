@@ -7,12 +7,6 @@ optimizer = true
 optimizer_runs = 100000
 evm_version = "cancun"
 
-# Solc's default metadata trailer hashes the source files, so the pin would track prose, not code.
-bytecode_hash = "none"
-cbor_metadata = false
-
-fs_permissions = [{ access = "read", path = "./audit" }]
-
 libs = ["dependencies"]
 
 fuzz.runs = 1024

@@ -1,8 +1,0 @@
-{
-  "harness": "test/HashHarness.sol:HashHarness",
-  "harnessRuntimeCodeHash": "0x40f2e246907e1a0f64c4959ac948c11efd257f3a1fc3889f687ff5322ba25b42",
-  "auditedCommits": [
-    "33e17004ed6f9248d5cbb139c93da7190770c1f4",
-    "5055221444d547aba034b88fbd2525973b17d9a9"
-  ]
-}

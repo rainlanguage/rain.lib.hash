@@ -161,7 +161,7 @@ information to the raw data as part of the encoding. Something like
 head/tail structures that encode the offsets of the dynamic length data in an
 overall prefix to the encoded data.
 
-https://docs.soliditylang.org/en/develop/abi-spec.html#formal-specification-of-the-encoding
+https://docs.soliditylang.org/en/stable/abi-spec.html#formal-specification-of-the-encoding
 
 Importantly, in light of the discussion in EIP712, the lengths are fixed length
 themselves, always represented as a `uint256`. The canonical encoding of one
@@ -213,7 +213,7 @@ This saving is of course most noticeable when the algorithm is relatively
 efficient, or involves a tight internal loop over encoding, such that the
 encoding then starts to dominate the profile. Even in cases where that is not
 true, such as comparing the reference SSTORE2 implementation to
-[LibDataContract](https://github.com/rainlanguage/rain.datacontract/blob/main/src/lib/LibDataContract.sol) we still can see 1k+ gas savings per-write for common usage patterns, with
+[LibDataContract](https://github.com/rainlanguage/rain.datacontract/blob/252093fbf9edcbe1c0c73c33b16bdefaff53aef1/src/LibDataContract.sol) we still can see 1k+ gas savings per-write for common usage patterns, with
 identical outcomes.
 
 It really just seems to come down to the fact that memory expansion and bulk
@@ -248,13 +248,13 @@ write assembly the moment we want to do anything other than `abi.encode`.
 
 The memory layout of data in Solidity is very regular across all data types.
 
-https://docs.soliditylang.org/en/v0.8.19/internals/layout_in_memory.html
+https://docs.soliditylang.org/en/stable/internals/layout_in_memory.html
 
 Note that the memory layout is completely different to e.g. the storage layout.
 Everything discussed here is specific to data in memory and does not generalise
 at all.
 
-All non-struct types end up in one of 3 buckets:
+Every type ends up in one of 3 buckets:
 
 - 1 or more 32 byte words, of `length` defined by the type
 - A 32 byte `length` followed by `length` 32 byte words (most dynamic types)
@@ -375,9 +375,10 @@ beyond it, including where it leaves the free memory pointer.
 The assembly for this is actually simpler than dealing with words as we do not
 need to convert between length/bytes: skip the length prefix as above, then take
 the length prefix as the count of bytes it already is. It is the same for
-`string` and `bytes`. `testHashBytes` and `testHashString` in
-`test/HashPattern.t.sol` are that assembly over each type, and
-`testBytesTrueLength` is the `hex"01"` / `hex"0100"` pair above.
+`string` and `bytes`. `testHashBytesExampleIsKeccakOfBytes` and
+`testHashStringExampleIsKeccakOfBytes` in `test/HashPattern.t.sol` are that
+assembly over each type, and `testBytesTrueLength` is the `hex"01"` /
+`hex"0100"` pair above.
 
 Note that pointers never appear in `bytes` nor `string`, or if they do, they are
 not going to be dereferenced by our hashing logic. That single `keccak256` is
@@ -413,8 +414,8 @@ Using our `Foo` struct from above as an example this would look like:
 - Write `C` and `D` to scratch space as above
 - Hash the scratch space to produce `E`, which is our final hash of `Foo`
 
-`testHandlingPointers` in `test/HashPattern.t.sol` is those steps as assembly,
-checked against A to E rebuilt with `abi.encode`.
+`testStructWithPointersHashesAsNestedNodes` in `test/HashPattern.t.sol` is those
+steps as assembly, checked against A to E rebuilt with `abi.encode`.
 
 If we had a list of pointers, such as a `Foo[]` then this would be modelled as
 a simple fold/reduce-style accumulator, seeded with the nil hash (see below),
@@ -522,10 +523,14 @@ the type, and each step relies on nothing but the collision resistance of
 - A pointer: `hash(hash(a) + hash(b))` equals `hash(hash(c) + hash(d))` only if
   `hash(a)` = `hash(c)` and `hash(b)` = `hash(d)`, and as `a`, `c` share a type
   and `b`, `d` share a type, by induction `a` = `c` and `b` = `d`.
-- A list of pointers folded from the nil hash: the fold over `n` items is
-  `hash(fold(n - 1) + hash(item))` and the fold over 0 items is the hash of 0
-  bytes, which cannot equal the hash of the 64 bytes any longer fold hashes.
-  Equal folds therefore have equal lengths and, by induction, equal items.
+- A list of pointers folded from the nil hash: the fold over 0 items is the
+  hash of 0 bytes and the fold over `n` >= 1 items is
+  `hash(fold(n - 1) + hash(item))`, a hash of 64 bytes. If the folds over `n`
+  and `m` items are equal, with `n` <= `m`, peeling one layer at a time gives
+  `fold(n - 1)` = `fold(m - 1)` and equal last-item hashes, down to
+  `fold(0)` = `fold(m - n)`; the hash of 0 bytes cannot equal a hash of 64
+  bytes, so `n` = `m`, and each peeled pair of equal item hashes is, by
+  induction over the item type, a pair of equal items.
 
 As `keccak256` always produces hashes exactly 32 bytes long for all inputs, a
 node is always exactly two hashes and needs no length prefix, so we avoid the

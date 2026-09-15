@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibHashNoAlloc, HASH_NIL} from "../src/LibHashNoAlloc.sol";
+import {LibHashSlow, HASH_WORDS_ONE_TWO} from "./LibHashSlow.sol";
 
 /// Values of different types whose hashed bytes coincide hash identically.
 /// Every assertion here holds because the library hashes raw memory with no
@@ -17,7 +18,7 @@ contract LibHashNoAllocCrossTypeTest is Test {
         bytes memory leaf = abi.encodePacked(leftHash, rightHash);
         bytes32 node = LibHashNoAlloc.combineHashes(leftHash, rightHash);
         assertEq(LibHashNoAlloc.hashBytes(leaf), node);
-        assertEq(node, keccak256(leaf));
+        assertEq(node, LibHashSlow.hashBytesSlow(leaf));
     }
 
     /// The same `32n` bytes hash identically as `bytes`, `bytes32[]` and
@@ -28,7 +29,7 @@ contract LibHashNoAllocCrossTypeTest is Test {
         for (uint256 i = 0; i < words.length; i++) {
             uints[i] = uint256(words[i]);
         }
-        bytes32 expected = keccak256(raw);
+        bytes32 expected = LibHashSlow.hashBytesSlow(raw);
         assertEq(LibHashNoAlloc.hashBytes(raw), expected);
         assertEq(LibHashNoAlloc.hashWords(words), expected);
         assertEq(LibHashNoAlloc.hashWords(uints), expected);
@@ -45,7 +46,7 @@ contract LibHashNoAllocCrossTypeTest is Test {
         bytes32[] memory dynamicWords = new bytes32[](2);
         dynamicWords[0] = a;
         dynamicWords[1] = b;
-        bytes32 expected = keccak256(abi.encodePacked(a, b));
+        bytes32 expected = LibHashSlow.combineHashesSlow(a, b);
         assertEq(fixedHash, expected);
         assertEq(LibHashNoAlloc.hashWords(dynamicWords), expected);
         assertEq(LibHashNoAlloc.hashBytes(abi.encodePacked(a, b)), expected);
@@ -53,9 +54,9 @@ contract LibHashNoAllocCrossTypeTest is Test {
     }
 
     /// Known answer: the 64 bytes `1` then `2` hash to the same value through
-    /// every entry point. The constant is `cast keccak` of those 64 bytes.
+    /// every entry point.
     function testWordsOneTwoKnownAnswer() public pure {
-        bytes32 expected = 0xe90b7bceb6e7df5418fb78d8ee546e97c83a08bbccc01a0644d599ccd2a7c2e0;
+        bytes32 expected = HASH_WORDS_ONE_TWO;
         bytes32[] memory words = new bytes32[](2);
         words[0] = bytes32(uint256(1));
         words[1] = bytes32(uint256(2));

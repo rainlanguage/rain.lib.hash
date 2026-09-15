@@ -2,6 +2,12 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
+/// @dev `keccak256` of the 3 bytes `abc`.
+bytes32 constant HASH_ABC = 0x4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45;
+
+/// @dev `keccak256` of the 64 bytes that are the word `1` then the word `2`.
+bytes32 constant HASH_WORDS_ONE_TWO = 0xe90b7bceb6e7df5418fb78d8ee546e97c83a08bbccc01a0644d599ccd2a7c2e0;
+
 library LibHashSlow {
     function hashBytesSlow(bytes memory data) internal pure returns (bytes32) {
         return keccak256(data);

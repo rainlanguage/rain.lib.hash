@@ -1,5 +1,10 @@
 # rain.lib.hash
 
+`LibHashNoAlloc` in `src/lib/LibHashNoAlloc.sol`, published to
+[soldeer](https://soldeer.xyz) as `rain-lib-hash`, implements the primitives of
+the pattern this document describes for hashing any Solidity value in memory
+without allocating.
+
 ## Problem
 
 When producing hashes of just about anything that isn't already `bytes` the
@@ -159,12 +164,17 @@ overall prefix to the encoded data.
 https://docs.soliditylang.org/en/develop/abi-spec.html#formal-specification-of-the-encoding
 
 Importantly, in light of the discussion in EIP712, the lengths are fixed length
-themselves, always represented as a `uint256`, so the full `abi.encode` encoding
-of the underlying data is probably safe.
+themselves, always represented as a `uint256`. The canonical encoding of one
+fixed type tuple is decodable, and that is the whole argument for it: as
+`abi.decode` recovers the value, two different values of that type cannot share
+an encoding.
 
 So `abi.encode` doesn't have the problems of `abi.encodePacked` nor early geth
-implementations, but is that a strong proof that it doesn't introduce new
-problems?
+implementations. What it does not give is injectivity ACROSS types:
+`abi.encode(uint8(1))`, `abi.encode(uint256(1))`, `abi.encode(true)` and
+`abi.encode(address(1))` are all the same 32 bytes. That is the same "one hash
+domain, one type" restriction the pattern below carries, so the case for the
+pattern is cost, not a stronger guarantee.
 
 #### Gas cost of encoding
 
@@ -227,8 +237,12 @@ write assembly the moment we want to do anything other than `abi.encode`.
   minimal memory reads/writes, and is generally efficient
 - Convince ourselves the pattern is unambiguous/secure, being both deterministic
   and injective
-- Provide a reference implementation of the pattern that can be fuzzed against
-  to show inline implementations of the pattern provide valid outputs
+- Provide a reference implementation of the pattern's primitives, `hashBytes`,
+  `hashWords` and `combineHashes` plus the `HASH_NIL` seed, that inline
+  implementations can be fuzzed against; composition, i.e. the per-struct steps
+  and the fold, is written inline per type from those primitives, and is worked
+  as fuzz tests in `test/src/lib/HashPattern.t.sol` and
+  `test/src/lib/HashPatternFold.t.sol` rather than exported
 
 ### The pattern
 
@@ -304,8 +318,8 @@ time we are free to simply hash the known memory region.
 
 For example, a `foo_` as above is hashed by a single `keccak256` reading the
 struct's whole 4 words from the pointer. `testHashContiguousWords` in
-`test/src/lib/HashPattern.t.sol` is that assembly, checked against those 4 words read
-back independently.
+`test/src/lib/HashPattern.t.sol` is that assembly, checked against those 4 words
+read back independently.
 
 Ignore for now that `c` and `d` are pointers, as that will be discussed later in
 this document.
@@ -361,9 +375,10 @@ beyond it, including where it leaves the free memory pointer.
 The assembly for this is actually simpler than dealing with words as we do not
 need to convert between length/bytes: skip the length prefix as above, then take
 the length prefix as the count of bytes it already is. It is the same for
-`string` and `bytes`. `testHashBytes` and `testHashString` in
-`test/src/lib/HashPattern.t.sol` are that assembly over each type, and
-`testBytesTrueLength` is the `hex"01"` / `hex"0100"` pair above.
+`string` and `bytes`. `testHashBytesExampleIsKeccakOfBytes` and
+`testHashStringExampleIsKeccakOfBytes` in `test/src/lib/HashPattern.t.sol` are
+that assembly over each type, and `testBytesTrueLength` is the `hex"01"` /
+`hex"0100"` pair above.
 
 Note that pointers never appear in `bytes` nor `string`, or if they do, they are
 not going to be dereferenced by our hashing logic. That single `keccak256` is
@@ -399,8 +414,9 @@ Using our `Foo` struct from above as an example this would look like:
 - Write `C` and `D` to scratch space as above
 - Hash the scratch space to produce `E`, which is our final hash of `Foo`
 
-`testHandlingPointers` in `test/src/lib/HashPattern.t.sol` is those steps as assembly,
-checked against A to E rebuilt with `abi.encode`.
+`testStructWithPointersHashesAsNestedNodes` in
+`test/src/lib/HashPattern.t.sol` is those steps as assembly, checked against A
+to E rebuilt with `abi.encode`.
 
 If we had a list of pointers, such as a `Foo[]` then this would be modelled as
 a simple fold/reduce-style accumulator, seeded with the nil hash (see below),
@@ -430,6 +446,48 @@ type behind the pointers.
 
 The seed is also what separates a one-item array from its item: `[x]` hashes
 to `hash(nil + hash(x))` rather than `hash(x)`.
+
+#### Reference implementation
+
+`LibHashNoAlloc` in `src/lib/LibHashNoAlloc.sol` carries the primitives of the
+pattern and nothing above them: the three leaf hashers, the binary node, and
+the seed that a fold starts from.
+
+```solidity
+bytes32 constant HASH_NIL =
+    0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
+
+library LibHashNoAlloc {
+    function hashBytes(bytes memory data) internal pure returns (bytes32);
+    function hashWords(bytes32[] memory words) internal pure returns (bytes32);
+    function hashWords(uint256[] memory words) internal pure returns (bytes32);
+    function combineHashes(bytes32 a, bytes32 b) internal pure returns (bytes32);
+}
+```
+
+`hashWords` is overloaded on `bytes32[]` and `uint256[]`, which hash the same
+words to the same hash. `HASH_NIL` is a file level constant, not a member of the
+library, and is imported alongside it.
+
+Composition is not exported. The steps for a struct and the fold over a list of
+pointers are written inline per type from these four, as "Handling pointers"
+above sets out. All four hash raw bytes with no type, length or domain tag, so
+their outputs coincide across types wherever the hashed bytes do; the NatSpec
+on each function lists what collides with what, and "Across types nothing is
+unambiguous" below is why that matters.
+
+Install with [soldeer](https://soldeer.xyz):
+
+```sh
+forge soldeer install rain-lib-hash~<version>
+```
+
+and import the library and the seed together:
+
+```solidity
+import {LibHashNoAlloc, HASH_NIL} from
+    "rain-lib-hash-<version>/src/lib/LibHashNoAlloc.sol";
+```
 
 #### Security of composition
 
@@ -508,8 +566,41 @@ separation, e.g. hash a per-type constant into the composition the way EIP712
 hashes a type hash into every struct hash. The reference implementation adds
 none.
 
-I'm not sure this constitutes a formal mathematical proof, but I'm not sure if
-one exists for `abi.encode` either :)
+Whatever this induction is worth as a formal proof, the same is available for
+`abi.encode`: decodability gives it injectivity per type, and neither argument
+reaches past one type. The pattern gets there without producing the encoding,
+which is where the saving is.
+
+#### Implementing and testing the pattern
+
+An inline implementation states each hashed type's shape twice: once as the
+type definition, and once as the size literal its assembly hashes, such as the
+`0x80` for the 4 word `Foo` above. Nothing in the compiler ties the two
+together, so adding, removing or reordering a field and leaving the literal
+alone hashes a different set of words than the definition describes, with no
+error and no revert. A struct that gained a field is then signed and stored
+under a hash covering one field fewer than whoever signed it believes.
+
+Two fuzz tests per hashed type keep the literal and the definition equal. Both
+take their expected value from Solidity builtins that never see the literal, so
+neither can pass by repeating the same mistake:
+
+- The hash test asserts the inline hash equals a hash built without the
+  literal: `keccak256(abi.encode(<every field>))` where the fields are values,
+  and the same composition of `keccak256` over each dereferenced field where
+  they are pointers. A field the literal misses is a field `abi.encode` still
+  encodes, so the two disagree.
+- The allocation test asserts the free memory pointer moves by exactly the size
+  literal across a construction of the type. A field added to the definition
+  moves the pointer further than the literal.
+
+`test/src/lib/HashPattern.t.sol` and `test/src/lib/HashPatternFold.t.sol` are
+the hash tests for the `Foo` used throughout this document, over the struct and
+over a list of them, and `test/src/lib/MemoryLayout.t.sol` is the allocation
+test for its `0x80`.
+Copy their shape per type rather than reusing them: they are written against
+`Foo`, and the point of the check is that it is derived from the type it
+covers.
 
 ## Dev stuff
 

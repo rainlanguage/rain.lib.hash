@@ -90,6 +90,6 @@ contract HashPatternFoldTest is Test {
         bytes32 hashX = LibFooOracle.hashFoo(x);
         bytes32 folded = foldPattern(foos);
         assertEq(folded, keccak256(abi.encodePacked(HASH_NIL, hashX)));
-        assertTrue(folded != hashX);
+        assertNotEq(folded, hashX);
     }
 }

@@ -12,13 +12,12 @@ struct Foo {
     bytes d;
 }
 
-/// Every Yul example in README.md "The pattern", reproduced verbatim and
-/// checked against a plain Solidity implementation of what its surrounding
-/// prose says it computes, plus the memory-layout claims that prose makes
-/// about the types the examples cover, read back with `mload`. The only
-/// deviation from the README is that each result is assigned to a Solidity
-/// variable instead of a Yul `let` so that it can be asserted. The oracles use
-/// neither the library nor the assembly under test.
+/// The assembly of README.md "The pattern", which states the pattern in prose
+/// and points here for the code. Each example is checked against a plain
+/// Solidity implementation of what that prose says it computes, plus the
+/// memory-layout claims the prose makes about the types the examples cover,
+/// read back with `mload`. The oracles use neither the library nor the
+/// assembly under test.
 contract HashPatternTest is Test {
     /// "Hashing contigious words": a `Foo` is the 4 words `a`, `b` and the
     /// pointers to `c` and `d`, so the hash is the hash of exactly those 4

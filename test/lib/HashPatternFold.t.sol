@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {LibHashNoAlloc, HASH_NIL} from "../src/LibHashNoAlloc.sol";
+import {LibHashNoAlloc, HASH_NIL} from "../../src/lib/LibHashNoAlloc.sol";
 
 /// The struct README.md "Handling pointers" hashes, and folds a list of.
 struct Foo {

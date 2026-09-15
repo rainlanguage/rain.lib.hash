@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {LibHashNoAlloc, HASH_NIL} from "../src/LibHashNoAlloc.sol";
+import {LibHashNoAlloc, HASH_NIL} from "../../../src/lib/LibHashNoAlloc.sol";
 
 /// Values of different types whose hashed bytes coincide hash identically.
 /// Every assertion here holds because the library hashes raw memory with no

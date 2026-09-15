@@ -3,8 +3,8 @@
 pragma solidity ^0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {LibHashNoAlloc, HASH_NIL} from "../src/LibHashNoAlloc.sol";
-import {LibHashSlow} from "./LibHashSlow.sol";
+import {LibHashNoAlloc, HASH_NIL} from "../../../src/lib/LibHashNoAlloc.sol";
+import {LibHashSlow} from "../../lib/LibHashSlow.sol";
 
 contract LibHashNoAllocTest is Test {
     function testHashNil() public pure {

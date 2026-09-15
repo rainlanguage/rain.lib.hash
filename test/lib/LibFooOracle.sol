@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-/// The struct README.md hashes in "The pattern", folds a list of in "Handling
-/// pointers" and lays out in "Memory layout": a 4-word region, one word per
-/// member whatever the member's type.
+/// The struct README.md hashes and lays out in "The pattern" and folds a list
+/// of in "Handling pointers": a 4-word region, one word per member whatever
+/// the member's type.
 struct Foo {
     uint256 a;
     address b;

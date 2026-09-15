@@ -474,9 +474,9 @@ to `hash(nil + hash(x))` rather than `hash(x)`.
 
 #### Reference implementation
 
-`LibHashNoAlloc` in `src/LibHashNoAlloc.sol` is the primitives of the pattern
-and nothing above them: the three leaf hashers, the binary node, and the seed
-that a fold starts from.
+`LibHashNoAlloc` in `src/LibHashNoAlloc.sol` carries the primitives of the
+pattern and nothing above them: the three leaf hashers, the binary node, and
+the seed that a fold starts from.
 
 ```solidity
 bytes32 constant HASH_NIL =

@@ -118,6 +118,8 @@ contract MemoryLayoutTest is Test {
     /// `uint256(int256(x))`, not the zero-padded `uint256(uint8(x))`.
     function testSignedIntIsSignExtended(int8 x) public pure {
         SubWord memory s = SubWord(true, ADDR, U, Colour.Green, x, B);
+        // The sign-extending cast is the layout claim under test.
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(word(s, 0x80), uint256(int256(x)));
     }
 
@@ -338,7 +340,7 @@ contract MemoryLayoutTest is Test {
             len := mload(b)
         }
         assertEq(ptr, fmpBefore);
-        assertEq(fmpAfter - ptr, 0x20 + ((uint256(n) + 0x1f) / 0x20) * 0x20);
+        assertEq(fmpAfter - ptr, 0x20 + ((uint256(n) + 0x1f) & ~uint256(0x1f)));
         assertEq(len, n);
     }
 
@@ -369,7 +371,7 @@ contract MemoryLayoutTest is Test {
         }
         assertEq(bPtr, fmp0);
         assertEq(sPtr, fmp1);
-        assertEq(fmp1 - bPtr, 0x20 + ((uint256(n) + 0x1f) / 0x20) * 0x20);
+        assertEq(fmp1 - bPtr, 0x20 + ((uint256(n) + 0x1f) & ~uint256(0x1f)));
         assertEq(fmp2 - sPtr, fmp1 - bPtr);
         assertEq(bLen, n);
         assertEq(sLen, n);

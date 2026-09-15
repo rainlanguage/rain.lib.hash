@@ -3,22 +3,15 @@
 pragma solidity ^0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {Foo, LibFooOracle} from "./lib/LibFooOracle.sol";
+import {LibMemorySnapshot} from "./lib/LibMemorySnapshot.sol";
 
-/// The struct that README.md "The pattern" hashes in its examples.
-struct Foo {
-    uint256 a;
-    address b;
-    uint256[] c;
-    bytes d;
-}
-
-/// Every Yul example in README.md "The pattern", reproduced verbatim and
-/// checked against a plain Solidity implementation of what its surrounding
-/// prose says it computes, plus the memory-layout claims that prose makes
-/// about the types the examples cover, read back with `mload`. The only
-/// deviation from the README is that each result is assigned to a Solidity
-/// variable instead of a Yul `let` so that it can be asserted. The oracles use
-/// neither the library nor the assembly under test.
+/// The assembly of README.md "The pattern", which states the pattern in prose
+/// and points here for the code. Each example is checked against a plain
+/// Solidity implementation of what that prose says it computes, plus the
+/// memory-layout claims the prose makes about the types the examples cover,
+/// read back with `mload`. The oracles use neither the library nor the
+/// assembly under test.
 contract HashPatternTest is Test {
     /// "Hashing contigious words": a `Foo` is the 4 words `a`, `b` and the
     /// pointers to `c` and `d`, so the hash is the hash of exactly those 4
@@ -71,21 +64,19 @@ contract HashPatternTest is Test {
     function testFooListIsWordList(uint8 length) public pure {
         uint256 n = length;
         Foo[] memory foos_ = new Foo[](n);
-        uint256 len;
+        uint256 ptr;
         assembly ("memory-safe") {
-            len := mload(foos_)
+            ptr := foos_
         }
-        assertEq(len, n);
+        assertEq(LibMemorySnapshot.wordAt(ptr, 0), n);
 
         for (uint256 i = 0; i < n; i++) {
             Foo memory foo_ = foos_[i];
             uint256 fooPointer;
-            uint256 word;
             assembly ("memory-safe") {
                 fooPointer := foo_
-                word := mload(add(foos_, mul(add(i, 1), 0x20)))
             }
-            assertEq(word, fooPointer);
+            assertEq(LibMemorySnapshot.wordAt(ptr, (i + 1) * 0x20), fooPointer);
         }
     }
 
@@ -128,17 +119,7 @@ contract HashPatternTest is Test {
     /// "It is the same for `string` and `bytes`": the same example over a
     /// `string` is `keccak256` of the string's bytes.
     function testHashString(string memory baz_) public pure {
-        bytes32 hash_;
-        assembly ("memory-safe") {
-            // Assume baz_ is some bytes/string
-            hash_ := keccak256(
-                // Skip the length prefix
-                add(baz_, 0x20),
-                // Read the length prefix to know how many _bytes_ to hash
-                mload(baz_)
-            )
-        }
-        assertEq(hash_, keccak256(bytes(baz_)));
+        assertEq(hashBytesExample(bytes(baz_)), keccak256(bytes(baz_)));
     }
 
     function testBytesTrueLength() public pure {
@@ -165,9 +146,8 @@ contract HashPatternTest is Test {
         assertEq(hashTwo_, keccak256(hex"0100"));
     }
 
-    /// "Handling pointers": the prose steps A to E over `Foo`. A is the first
-    /// two words, B is the word list `c`, C combines A and B, D is the bytes
-    /// `d`, E combines C and D.
+    /// "Handling pointers": the prose steps A to E over `Foo`, as
+    /// `LibFooOracle.hashFoo` spells them out.
     function testHandlingPointers(uint256 a, address b, uint256[] memory c, bytes memory d) public pure {
         Foo memory foo_ = Foo(a, b, c, d);
         bytes32 e;
@@ -193,11 +173,6 @@ contract HashPatternTest is Test {
             e := keccak256(0, 0x40)
         }
 
-        bytes32 hashA = keccak256(abi.encode(a, b));
-        bytes32 hashB = keccak256(abi.encodePacked(c));
-        bytes32 hashC = keccak256(abi.encodePacked(hashA, hashB));
-        bytes32 hashD = keccak256(d);
-        bytes32 hashE = keccak256(abi.encodePacked(hashC, hashD));
-        assertEq(e, hashE);
+        assertEq(e, LibFooOracle.hashFoo(foo_));
     }
 }

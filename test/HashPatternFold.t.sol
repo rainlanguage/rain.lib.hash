@@ -4,14 +4,7 @@ pragma solidity ^0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibHashNoAlloc, HASH_NIL} from "../src/LibHashNoAlloc.sol";
-
-/// The struct README.md "Handling pointers" hashes, and folds a list of.
-struct Foo {
-    uint256 a;
-    address b;
-    uint256[] c;
-    bytes d;
-}
+import {Foo, LibFooOracle} from "./lib/LibFooOracle.sol";
 
 /// The `Foo[]` fold README.md "Handling pointers" and "Nil hash prefix"
 /// describe: an accumulator seeded with the nil hash, into which each item's
@@ -20,41 +13,33 @@ struct Foo {
 /// `abi.encodePacked` only; `LibHashNoAlloc.combineHashes` stands in for
 /// "write both to scratch and hash" on the side under test.
 contract HashPatternFoldTest is Test {
-    /// The README's hash of one `Foo`, steps A to E: A is the first two
-    /// words, B the word list `c`, C combines A and B, D the bytes `d`, E
-    /// combines C and D.
-    function hashFoo(Foo memory foo) internal pure returns (bytes32) {
-        bytes32 hashA = keccak256(abi.encode(foo.a, foo.b));
-        bytes32 hashB = keccak256(abi.encodePacked(foo.c));
-        bytes32 hashC = keccak256(abi.encodePacked(hashA, hashB));
-        bytes32 hashD = keccak256(foo.d);
-        return keccak256(abi.encodePacked(hashC, hashD));
-    }
-
     /// The README fold: start from the nil hash, then for each item write
     /// the accumulator and the item's hash to scratch and hash the pair.
-    function foldPattern(Foo[] memory foos) internal pure returns (bytes32 acc) {
-        acc = HASH_NIL;
+    function foldPattern(Foo[] memory foos) internal pure returns (bytes32) {
+        bytes32 acc = HASH_NIL;
         for (uint256 i = 0; i < foos.length; i++) {
-            acc = LibHashNoAlloc.combineHashes(acc, hashFoo(foos[i]));
+            acc = LibHashNoAlloc.combineHashes(acc, LibFooOracle.hashFoo(foos[i]));
         }
+        return acc;
     }
 
     /// The same fold with builtins only: the pair in scratch is the packed
     /// concatenation of the accumulator then the item's hash.
-    function foldOracle(Foo[] memory foos) internal pure returns (bytes32 expected) {
-        expected = HASH_NIL;
+    function foldOracle(Foo[] memory foos) internal pure returns (bytes32) {
+        bytes32 expected = HASH_NIL;
         for (uint256 i = 0; i < foos.length; i++) {
-            expected = keccak256(abi.encodePacked(expected, hashFoo(foos[i])));
+            expected = keccak256(abi.encodePacked(expected, LibFooOracle.hashFoo(foos[i])));
         }
+        return expected;
     }
 
     /// The first `n` items of `pool` as a `Foo[]`.
-    function take(Foo[4] memory pool, uint256 n) internal pure returns (Foo[] memory foos) {
-        foos = new Foo[](n);
+    function take(Foo[4] memory pool, uint256 n) internal pure returns (Foo[] memory) {
+        Foo[] memory foos = new Foo[](n);
         for (uint256 i = 0; i < n; i++) {
             foos[i] = pool[i];
         }
+        return foos;
     }
 
     /// The README's step-by-step letters over `foos_[0]` and `foos_[1]`: N is
@@ -67,9 +52,9 @@ contract HashPatternFoldTest is Test {
         foos[1] = foo1;
 
         bytes32 n = HASH_NIL;
-        bytes32 a = hashFoo(foos[0]);
+        bytes32 a = LibFooOracle.hashFoo(foos[0]);
         bytes32 b = LibHashNoAlloc.combineHashes(n, a);
-        bytes32 c = hashFoo(foos[1]);
+        bytes32 c = LibFooOracle.hashFoo(foos[1]);
         bytes32 d = LibHashNoAlloc.combineHashes(b, c);
 
         Foo[] memory first = new Foo[](1);
@@ -102,7 +87,7 @@ contract HashPatternFoldTest is Test {
     function testFoldSingletonIsNotItem(Foo memory x) public pure {
         Foo[] memory foos = new Foo[](1);
         foos[0] = x;
-        bytes32 hashX = hashFoo(x);
+        bytes32 hashX = LibFooOracle.hashFoo(x);
         bytes32 folded = foldPattern(foos);
         assertEq(folded, keccak256(abi.encodePacked(HASH_NIL, hashX)));
         assertNotEq(folded, hashX);

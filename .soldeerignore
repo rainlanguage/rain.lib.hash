@@ -1,18 +1,6 @@
-.DS_Store
-.git
-.github
-.gitignore
-.pre-commit-config.yaml
-.soldeerignore
-.vscode
-/audit
-/cache
-/dependencies
-/flake.lock
-/flake.nix
-/foundry.toml
-/out
-/remappings.txt
-/slither.config.json
-/soldeer.lock
-/REUSE.toml
+# Allowlist: a new path ships only when re-included here.
+/*
+!/src
+!/README.md
+!/LICENSE
+!/LICENSES

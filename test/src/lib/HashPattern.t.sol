@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {Test} from "forge-std-1.16.2/src/Test.sol";
 import {Foo, LibFooOracle} from "../../lib/LibFooOracle.sol";
 import {LibMemorySnapshot} from "../../lib/LibMemorySnapshot.sol";
 
@@ -172,7 +172,6 @@ contract HashPatternTest is Test {
             // Store D in scratch
             mstore(0x20, keccak256(add(deref_, 0x20), mload(deref_)))
 
-            // Write C and D to scratch to produce the final hash E
             e := keccak256(0, 0x40)
         }
 

@@ -11,8 +11,6 @@ libs = ["dependencies"]
 
 fuzz.runs = 1024
 
-fs_permissions = [{ access = "read", path = "./" }]
-
 [dependencies]
 forge-std = "1.16.1"
 

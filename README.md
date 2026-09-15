@@ -147,7 +147,7 @@ information to the raw data as part of the encoding. Something like
 head/tail structures that encode the offsets of the dynamic length data in an
 overall prefix to the encoded data.
 
-https://docs.soliditylang.org/en/v0.8.25/abi-spec.html#formal-specification-of-the-encoding
+https://docs.soliditylang.org/en/stable/abi-spec.html#formal-specification-of-the-encoding
 
 Importantly, in light of the discussion in EIP712, the lengths are fixed length
 themselves, always represented as a `uint256`, so the full `abi.encode` encoding
@@ -225,7 +225,7 @@ write assembly the moment we want to do anything other than `abi.encode`.
 
 The memory layout of data in Solidity is very regular across all data types.
 
-https://docs.soliditylang.org/en/v0.8.25/internals/layout_in_memory.html
+https://docs.soliditylang.org/en/stable/internals/layout_in_memory.html
 
 Note that the memory layout is completely different to e.g. the storage layout.
 Everything discussed here is specific to data in memory and does not generalise

@@ -489,6 +489,13 @@ identically. Concretely, with the reference implementation:
   prefix.
 - `hashBytes` over empty bytes, `hashWords` over an empty list and the fold
   over an empty list of pointers of any type are all the nil hash.
+- A struct whose fields are all pointers has no data before its first
+  pointer, so "Handling pointers" starts it from the nil hash and builds the
+  same tree the fold builds: `struct { bytes d1; bytes d2; }` hashes as the
+  `bytes[]` `[d1, d2]` for every value, and in general an `n`-field struct of
+  `T` pointer fields hashes as an `n`-item `T[]`. Unlike the others this is a
+  whole-type collision: it holds for every value of both types, not just
+  where their hashed bytes happen to coincide.
 
 None of these is a collision within a type, so none of them touches the
 induction above. They bite the moment the restriction is dropped: if one hash

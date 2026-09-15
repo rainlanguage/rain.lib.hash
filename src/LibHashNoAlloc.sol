@@ -4,7 +4,10 @@ pragma solidity ^0.8.25;
 
 /// @dev The keccak256 hash of the empty byte string, i.e. hash of no data.
 /// `hashBytes` of empty bytes and `hashWords` of an empty array of either type
-/// both evaluate to it.
+/// both evaluate to it. It is also the seed for folding a list of pointers:
+/// `acc = HASH_NIL; for each item: acc = combineHashes(acc, hash(item))`, so an
+/// empty list of any type folds to `HASH_NIL` and a one-item list folds to
+/// `combineHashes(HASH_NIL, hash(item))`, never to `hash(item)`.
 bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
 
 /// @title LibHashNoAlloc
@@ -16,12 +19,14 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 /// pack and therefore hash to the same values, the suggested fix commonly being
 /// to use abi.encode, which includes the lengths disambiguating dynamic data.
 /// Something like `3"abc" + 3"def"` with the length prefixes won't collide with
-/// `2"ab" + 4"cdef"` but note that ABI provides neither a strong guarantee to
-/// be collision resitant on inputs (as far as I know, it's a coincidence that
-/// this works), nor an efficient solution.
+/// `2"ab" + 4"cdef"`: within one type tuple `abi.encode` is injective because
+/// `abi.decode` recovers the value. It is not injective across types, which is
+/// the same restriction the composition below carries, and it is not efficient.
 ///
-/// - Abi encoding is a complex algorithm that is easily 1k+ gas for simple
-///   structs with just one or two dynamic typed fields.
+/// - Abi encoding is a complex algorithm that costs several hundred gas for a
+///   struct with one or two dynamic typed fields even when those fields are
+///   empty, and over 1k once they hold a handful of words, growing with every
+///   word copied.
 /// - Abi encoding requires allocating and copying all the data plus a header to
 ///   a new region of memory, which gives it non-linearly increasing costs due to
 ///   memory expansion.
@@ -31,23 +36,24 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 ///   https://docs.soliditylang.org/en/develop/abi-spec.html#formal-specification-of-the-encoding
 ///
 /// Consider that `hash(hash("abc") + hash("def"))` won't collide with
-/// `hash(hash("ab") + hash("cdef"))`. It should be easier to convince ourselves
-/// this is true for all possible pairs of byte strings than it is to convince
-/// ourselves that the ABI serialization is never ambigious. Inductively we can
-/// scale this to any data structure that is an ordered composition of byte
-/// strings, as long as the shape of the composition is fixed and every hash is
-/// only ever compared with hashes of values of the same type. Across types
-/// nothing here is injective; the notes on each function below list what
-/// collides. Even better, the native behaviour of `keccak256` in the EVM
-/// requires no additional allocation of memory. Worst case scenario is that we
-/// want to hash several hashes together like `hash(hash0, hash1, ...)`, in which
-/// case `combineHashes` writes the two words to the scratch space at
-/// `0x00-0x3f` that Solidity reserves for hashing and hashes them there. That
-/// touches neither the free memory pointer at `0x40` nor any memory past it, so
-/// nothing is allocated and no memory expansion is paid; longer chains fold
-/// pairwise through the same two words. "No alloc" means exactly that for every
-/// function here: `hashBytes` and `hashWords` hash their data where it already
-/// sits, and `combineHashes` hashes through scratch space.
+/// `hash(hash("ab") + hash("cdef"))`. Convincing ourselves this holds for all
+/// possible pairs of byte strings is the same one-liner as the decodability
+/// argument for the ABI serialization, reached without ever producing the
+/// encoding. Inductively we can scale this to any data structure that is an
+/// ordered composition of byte strings, as long as the shape of the composition
+/// is fixed and every hash is only ever compared with hashes of values of the
+/// same type. Across types nothing here is injective; the notes on each
+/// function below list what collides. Even better, the native behaviour of
+/// `keccak256` in the EVM requires no additional allocation of memory. Worst
+/// case scenario is that we want to hash several hashes together like
+/// `hash(hash0, hash1, ...)`, in which case `combineHashes` writes the two
+/// words to the scratch space at `0x00-0x3f` that Solidity reserves for hashing
+/// and hashes them there. That touches neither the free memory pointer at
+/// `0x40` nor any memory past it, so nothing is allocated and no memory
+/// expansion is paid; longer chains fold pairwise through the same two words.
+/// "No alloc" means exactly that for every function here: `hashBytes` and
+/// `hashWords` hash their data where it already sits, and `combineHashes`
+/// hashes through scratch space.
 ///
 /// The functions here are `internal` and tiny; where the optimizer does not
 /// inline a call, the jump in and out plus the stack shuffling costs tens of
@@ -70,11 +76,15 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 /// }
 /// ```
 /// Every struct field is 0x20 bytes in memory so 3 fields = 0x60 bytes to hash
-/// always, with the exception of dynamic types. This costs one `keccak256`
-/// opcode plus a few stack operations. `keccak256(abi.encode(foo_))` first
-/// allocates a fresh 3-word buffer, copies the three fields into it and bumps
-/// the free memory pointer, then pays the same hash; the encoding step alone
-/// costs more gas than the whole in-place hash.
+/// always. A field of reference type (a dynamic array, `bytes`, `string`, a
+/// nested struct or a static array) is still one word, but that word is a
+/// pointer, so hashing the struct region hashes the pointer and not the data it
+/// points to; the README covers folding such fields in. This costs one
+/// `keccak256` opcode plus a few stack operations.
+/// `keccak256(abi.encode(foo_))` first allocates a fresh 3-word buffer, copies
+/// the three fields into it and bumps the free memory pointer, then pays the
+/// same hash; the encoding step alone costs more gas than the whole in-place
+/// hash.
 ///
 /// The functions taking a memory reference read the length word the type
 /// guarantees; a reference whose length word does not describe its allocation

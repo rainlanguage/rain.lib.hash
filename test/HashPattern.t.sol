@@ -180,7 +180,8 @@ contract HashPatternTest is Test {
     }
 
     /// The "Handling pointers" example: the prose steps A to E over one `Foo`.
-    function hashFooExample(Foo memory foo_) internal pure returns (bytes32 e) {
+    function hashFooExample(Foo memory foo_) internal pure returns (bytes32) {
+        bytes32 e;
         assembly ("memory-safe") {
             // hash foo_.a and foo_.b together to produce hash A
             // store A in scratch
@@ -202,6 +203,7 @@ contract HashPatternTest is Test {
             // Write C and D to scratch to produce the final hash E
             e := keccak256(0, 0x40)
         }
+        return e;
     }
 
     /// The same steps A to E in plain Solidity: A is the first two words, B is

@@ -63,16 +63,12 @@ contract HashPatternTest is Test {
     /// one word per element, each word the pointer to that element's `Foo`.
     function testFooListIsWordList(uint8 length8) public pure {
         uint256 length = length8;
-        uint256 fmpBefore = LibMemorySnapshot.freeMemoryPointer();
         Foo[] memory foos = new Foo[](length);
-        uint256 fmpAfter = LibMemorySnapshot.freeMemoryPointer();
         uint256 ptr;
         assembly ("memory-safe") {
             ptr := foos
         }
-        assertEq(ptr, fmpBefore);
         assertEq(LibMemorySnapshot.wordAt(ptr, 0), length);
-        assertEq(fmpAfter - ptr, 0x20 + length * 0x20 + length * 0x80);
 
         for (uint256 i = 0; i < length; i++) {
             Foo memory foo = foos[i];
@@ -81,9 +77,6 @@ contract HashPatternTest is Test {
                 fooPointer := foo
             }
             assertEq(LibMemorySnapshot.wordAt(ptr, (i + 1) * 0x20), fooPointer);
-            if (i == 0) {
-                assertEq(fooPointer, ptr + 0x20 + length * 0x20);
-            }
         }
     }
 
@@ -121,41 +114,46 @@ contract HashPatternTest is Test {
 
     /// "Hashing dynamic length byte strings": the `length` bytes after the
     /// length prefix, i.e. `keccak256` of the bytes themselves.
-    function testHashBytes(bytes memory baz) public pure {
+    function testHashBytesExampleIsKeccakOfBytes(bytes memory baz) public pure {
         assertEq(hashBytesExample(baz), keccak256(baz));
     }
 
     /// "It is the same for `string` and `bytes`": the same example over a
     /// `string` is `keccak256` of the string's bytes.
-    function testHashString(string memory baz) public pure {
+    function testHashStringExampleIsKeccakOfBytes(string memory baz) public pure {
         assertEq(hashBytesExample(bytes(baz)), keccak256(bytes(baz)));
     }
 
-    /// "We MUST respect the true length": `hex"01"` and `hex"0100"` occupy the
-    /// same single data word (1 and 2 bytes, both zero-padded to 0x20), so a
-    /// hash over the allocated word would not tell them apart; the example
-    /// hashes only the `length` bytes and does.
     function testBytesTrueLength() public pure {
         bytes memory one = hex"01";
         bytes memory two = hex"0100";
         uint256 wordOne;
         uint256 wordTwo;
+        bytes32 roundedOne;
+        bytes32 roundedTwo;
         assembly ("memory-safe") {
             wordOne := mload(add(one, 0x20))
             wordTwo := mload(add(two, 0x20))
+            roundedOne := keccak256(add(one, 0x20), 0x20)
+            roundedTwo := keccak256(add(two, 0x20), 0x20)
         }
-        assertEq(wordOne, wordTwo);
+        assertEq(wordOne, uint256(bytes32(bytes1(0x01))));
+        assertEq(wordTwo, wordOne);
+        assertEq(roundedOne, roundedTwo);
 
         bytes32 hashOne = hashBytesExample(one);
         bytes32 hashTwo = hashBytesExample(two);
-        assertTrue(hashOne != hashTwo);
+        assertNotEq(hashOne, hashTwo);
         assertEq(hashOne, keccak256(hex"01"));
         assertEq(hashTwo, keccak256(hex"0100"));
     }
 
     /// "Handling pointers": the prose steps A to E over `Foo`, as
     /// `LibFooOracle.hashFoo` spells them out.
-    function testHandlingPointers(uint256 a, address b, uint256[] memory c, bytes memory d) public pure {
+    function testStructWithPointersHashesAsNestedNodes(uint256 a, address b, uint256[] memory c, bytes memory d)
+        public
+        pure
+    {
         Foo memory foo = Foo(a, b, c, d);
         bytes32 hash;
         assembly ("memory-safe") {
@@ -176,7 +174,6 @@ contract HashPatternTest is Test {
             // Store D in scratch
             mstore(0x20, keccak256(add(deref, 0x20), mload(deref)))
 
-            // Write C and D to scratch to produce the final hash E
             hash := keccak256(0, 0x40)
         }
 

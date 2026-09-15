@@ -41,7 +41,7 @@ contract HashPatternFoldTest is Test {
         return foos;
     }
 
-    function testFoldLetters(Foo memory foo0, Foo memory foo1) public pure {
+    function testFoldPrefixIsStepwiseCombine(Foo memory foo0, Foo memory foo1) public pure {
         Foo[] memory foos = new Foo[](2);
         foos[0] = foo0;
         foos[1] = foo1;
@@ -62,7 +62,7 @@ contract HashPatternFoldTest is Test {
 
     /// Every length from 0 to 4: the scratch-space fold equals the builtin
     /// fold.
-    function testFoldMatchesBuiltins(Foo[4] memory pool) public pure {
+    function testFoldEqualsPackedConcatFold(Foo[4] memory pool) public pure {
         for (uint256 count = 0; count <= 4; count++) {
             Foo[] memory foos = take(pool, count);
             assertEq(foldPattern(foos), foldOracle(foos));
@@ -83,6 +83,6 @@ contract HashPatternFoldTest is Test {
         bytes32 hashItem = LibFooOracle.hashFoo(item);
         bytes32 folded = foldPattern(foos);
         assertEq(folded, keccak256(abi.encodePacked(HASH_NIL, hashItem)));
-        assertTrue(folded != hashItem);
+        assertNotEq(folded, hashItem);
     }
 }

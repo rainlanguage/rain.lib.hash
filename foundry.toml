@@ -9,6 +9,10 @@ evm_version = "cancun"
 
 libs = ["dependencies"]
 
+fs_permissions = [
+  { access = "read", path = "./audit/mutation-test-scans.json" },
+]
+
 fuzz.runs = 1024
 
 [dependencies]

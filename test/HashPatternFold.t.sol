@@ -17,8 +17,10 @@ struct Foo {
 /// describe: an accumulator seeded with the nil hash, into which each item's
 /// hash is combined by writing the pair to scratch space and hashing it. The
 /// oracle for every assertion is built from `keccak256`, `abi.encode` and
-/// `abi.encodePacked` only; `LibHashNoAlloc.combineHashes` stands in for
-/// "write both to scratch and hash" on the side under test.
+/// `abi.encodePacked` only, its seed included, so the seed is checked against
+/// `HASH_NIL` rather than shared with it. The side under test is
+/// `LibHashNoAlloc.combineHashes` standing in for "write both to scratch and
+/// hash", or the README's own assembly for the whole fold.
 contract HashPatternFoldTest is Test {
     /// The README's hash of one `Foo`, steps A to E: A is the first two
     /// words, B the word list `c`, C combines A and B, D the bytes `d`, E
@@ -43,7 +45,7 @@ contract HashPatternFoldTest is Test {
     /// The same fold with builtins only: the pair in scratch is the packed
     /// concatenation of the accumulator then the item's hash.
     function foldOracle(Foo[] memory foos) internal pure returns (bytes32 expected) {
-        expected = HASH_NIL;
+        expected = keccak256("");
         for (uint256 i = 0; i < foos.length; i++) {
             expected = keccak256(abi.encodePacked(expected, hashFoo(foos[i])));
         }
@@ -94,7 +96,6 @@ contract HashPatternFoldTest is Test {
     function testFoldEmptyIsNilHash() public pure {
         Foo[] memory foos = new Foo[](0);
         assertEq(foldPattern(foos), keccak256(""));
-        assertEq(foldPattern(foos), HASH_NIL);
     }
 
     /// README "Nil hash prefix": `[x]` folds to `hash(nil + hash(x))`, which
@@ -104,7 +105,52 @@ contract HashPatternFoldTest is Test {
         foos[0] = x;
         bytes32 hashX = hashFoo(x);
         bytes32 folded = foldPattern(foos);
-        assertEq(folded, keccak256(abi.encodePacked(HASH_NIL, hashX)));
+        assertEq(folded, keccak256(abi.encodePacked(keccak256(""), hashX)));
         assertTrue(folded != hashX);
+    }
+
+    /// Every length from 0 to 4 again, with the README's own assembly on the
+    /// pattern side: each item hashed by its steps A to E and folded into a
+    /// `keccak256(0, 0)` accumulator through scratch space. That side shares
+    /// no code with the oracle, so a wrong item hash, dereference offset or
+    /// scratch clobber between the item hash and the accumulator write fails
+    /// here.
+    function testYulFoldMatchesBuiltins(Foo[4] memory pool) public pure {
+        for (uint256 n = 0; n <= 4; n++) {
+            Foo[] memory foos = take(pool, n);
+            bytes32 acc;
+            assembly ("memory-safe") {
+                acc := keccak256(0, 0)
+                for { let i := 0 } lt(i, mload(foos)) { i := add(i, 1) } {
+                    let foo_ := mload(add(foos, mul(add(i, 1), 0x20)))
+
+                    // hash foo_.a and foo_.b together to produce hash A
+                    // store A in scratch
+                    mstore(0, keccak256(foo_, 0x40))
+
+                    // Follow the pointer to hash foo_.c into B
+                    let deref_ := mload(add(foo_, 0x40))
+                    // Store B in scratch
+                    mstore(0x20, keccak256(add(deref_, 0x20), mul(mload(deref_), 0x20)))
+
+                    // Hash A and B to produce C which can be stored direct in scratch
+                    mstore(0, keccak256(0, 0x40))
+
+                    // Follow the pointer to hash foo_.d
+                    deref_ := mload(add(foo_, 0x60))
+                    // Store D in scratch
+                    mstore(0x20, keccak256(add(deref_, 0x20), mload(deref_)))
+
+                    // Write C and D to scratch to produce the final hash E
+                    let e := keccak256(0, 0x40)
+
+                    // Write the accumulator and E to scratch and hash the pair.
+                    mstore(0, acc)
+                    mstore(0x20, e)
+                    acc := keccak256(0, 0x40)
+                }
+            }
+            assertEq(acc, foldOracle(foos));
+        }
     }
 }

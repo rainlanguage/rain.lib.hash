@@ -126,7 +126,6 @@ contract MemoryLayoutTest is Test {
         SubWord memory s = SubWord(true, ADDR, U, Colour.Green, -1, B);
         uint256 w = word(s, 0x80);
         assertEq(w, type(uint256).max);
-        assertTrue(w != uint256(uint8(int8(-1))));
     }
 
     /// `bytesN` is left-aligned and zero-padded on the right: the word is
@@ -142,7 +141,6 @@ contract MemoryLayoutTest is Test {
         SubWord memory s = SubWord(true, ADDR, U, Colour.Green, I, bytes4(0x01020304));
         uint256 w = word(s, 0xa0);
         assertEq(w, uint256(0x01020304) << 224);
-        assertTrue(w != uint256(uint32(0x01020304)));
     }
 
     /// A `Foo` is a 4-word region: `uint256`, `address`, `uint256[]` and
@@ -229,8 +227,9 @@ contract MemoryLayoutTest is Test {
     }
 
     /// Nesting depth does not change the rule: an `Outermost` holding an
-    /// `Outer` holding a `Foo` is 2 words at each level, and the pointer word
-    /// at each level is the pointer to the next struct down.
+    /// `Outer` holding a `Foo` is 2 words at each level, the value word at
+    /// each level is that level's own `uint256`, and the pointer word at each
+    /// level is the pointer to the next struct down.
     function testDeeplyNestedStructIsOnePointerWordPerLevel(uint256 x, uint256 y) public pure {
         Foo memory inner = Foo(1, ADDR, new uint256[](0), "");
         uint256 fmp0;
@@ -264,6 +263,57 @@ contract MemoryLayoutTest is Test {
         assertEq(fmp2 - outermostPtr, 0x40);
         assertEq(w1, midPtr);
         assertEq(midW1, innerPtr);
+
+        // Reusing dead locals; two more would be stack-too-deep.
+        assembly ("memory-safe") {
+            w1 := mload(outermost)
+            midW1 := mload(midPtr)
+        }
+        assertEq(w1, y);
+        assertEq(midW1, x);
+    }
+
+    /// `new Foo[](n)` allocates the 0x20 + n * 0x20 word list first and then
+    /// one 0x80 `Foo` per element in element order, each default-initialised
+    /// (value members 0, dynamic members pointing at the zero slot).
+    function testNewFooArrayAllocatesListThenElements(uint8 length) public pure {
+        uint256 n = length;
+        uint256 fmpBefore;
+        assembly ("memory-safe") {
+            fmpBefore := mload(0x40)
+        }
+        Foo[] memory foos = new Foo[](n);
+        uint256 ptr;
+        uint256 fmpAfter;
+        assembly ("memory-safe") {
+            ptr := foos
+            fmpAfter := mload(0x40)
+        }
+        assertEq(ptr, fmpBefore);
+        assertEq(fmpAfter - ptr, 0x20 + n * 0x20 + n * 0x80);
+
+        for (uint256 i = 0; i < n; i++) {
+            Foo memory foo = foos[i];
+            uint256 fooPointer;
+            uint256 w0;
+            uint256 w1;
+            uint256 w2;
+            uint256 w3;
+            assembly ("memory-safe") {
+                fooPointer := foo
+                w0 := mload(foo)
+                w1 := mload(add(foo, 0x20))
+                w2 := mload(add(foo, 0x40))
+                w3 := mload(add(foo, 0x60))
+            }
+            assertEq(fooPointer, ptr + 0x20 + n * 0x20 + i * 0x80);
+            assertEq(w0, 0);
+            assertEq(w1, 0);
+            assertEq(w2, 0x60);
+            assertEq(w3, 0x60);
+            assertEq(foo.c.length, 0);
+            assertEq(foo.d.length, 0);
+        }
     }
 
     /// `uint256[]` and `bytes` members are pointer words: the third and fourth

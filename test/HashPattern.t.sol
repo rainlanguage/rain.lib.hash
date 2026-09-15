@@ -68,27 +68,14 @@ contract HashPatternTest is Test {
 
     /// "Lists of pointers like `Foo[]`" are word lists: a length prefix then
     /// one word per element, each word the pointer to that element's `Foo`.
-    /// `new Foo[](n)` allocates the 0x20 + n * 0x20 list first and then one
-    /// 0x80 zero-initialised `Foo` per element, so the first `Foo` starts
-    /// exactly where the list ends.
     function testFooListIsWordList(uint8 length) public pure {
         uint256 n = length;
-        uint256 fmpBefore;
-        assembly ("memory-safe") {
-            fmpBefore := mload(0x40)
-        }
         Foo[] memory foos_ = new Foo[](n);
-        uint256 ptr;
-        uint256 fmpAfter;
         uint256 len;
         assembly ("memory-safe") {
-            ptr := foos_
-            fmpAfter := mload(0x40)
             len := mload(foos_)
         }
-        assertEq(ptr, fmpBefore);
         assertEq(len, n);
-        assertEq(fmpAfter - ptr, 0x20 + n * 0x20 + n * 0x80);
 
         for (uint256 i = 0; i < n; i++) {
             Foo memory foo_ = foos_[i];
@@ -99,9 +86,6 @@ contract HashPatternTest is Test {
                 word := mload(add(foos_, mul(add(i, 1), 0x20)))
             }
             assertEq(word, fooPointer);
-            if (i == 0) {
-                assertEq(fooPointer, ptr + 0x20 + n * 0x20);
-            }
         }
     }
 
@@ -158,23 +142,29 @@ contract HashPatternTest is Test {
     }
 
     /// "We MUST respect the true length": `hex"01"` and `hex"0100"` occupy the
-    /// same single data word (1 and 2 bytes, both zero-padded to 0x20), so a
-    /// hash over the allocated word would not tell them apart; the example
-    /// hashes only the `length` bytes and does.
+    /// same single data word, `0x01` followed by 31 zero bytes (1 and 2 bytes,
+    /// both zero-padded to 0x20), so a hash over the allocated word collides;
+    /// the example hashes only the `length` bytes and does tell them apart.
     function testBytesTrueLength() public pure {
         bytes memory one_ = hex"01";
         bytes memory two_ = hex"0100";
         uint256 wordOne_;
         uint256 wordTwo_;
+        bytes32 roundedOne_;
+        bytes32 roundedTwo_;
         assembly ("memory-safe") {
             wordOne_ := mload(add(one_, 0x20))
             wordTwo_ := mload(add(two_, 0x20))
+            roundedOne_ := keccak256(add(one_, 0x20), 0x20)
+            roundedTwo_ := keccak256(add(two_, 0x20), 0x20)
         }
-        assertEq(wordOne_, wordTwo_);
+        assertEq(wordOne_, uint256(bytes32(bytes1(0x01))));
+        assertEq(wordTwo_, wordOne_);
+        assertEq(roundedOne_, roundedTwo_);
 
         bytes32 hashOne_ = hashBytesExample(one_);
         bytes32 hashTwo_ = hashBytesExample(two_);
-        assertTrue(hashOne_ != hashTwo_);
+        assertNotEq(hashOne_, hashTwo_);
         assertEq(hashOne_, keccak256(hex"01"));
         assertEq(hashTwo_, keccak256(hex"0100"));
     }

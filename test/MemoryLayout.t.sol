@@ -428,4 +428,27 @@ contract MemoryLayoutTest is Test {
             assertEq(sWord, bWord);
         }
     }
+
+    /// ALWAYS 4 words: whatever the members hold, the `uint256[]` and `bytes`
+    /// are still one pointer word each, so the struct allocates 0x80 and
+    /// nothing more. `c` and `d` arrive already allocated by the decoder, so
+    /// the struct is the only allocation in the window.
+    function testFooIsFourWordsWhateverItsMembersHold(uint256 a, address b, uint256[] memory c, bytes memory d)
+        public
+        pure
+    {
+        uint256 fmpBefore;
+        assembly ("memory-safe") {
+            fmpBefore := mload(0x40)
+        }
+        Foo memory f = Foo(a, b, c, d);
+        uint256 ptr;
+        uint256 fmpAfter;
+        assembly ("memory-safe") {
+            ptr := f
+            fmpAfter := mload(0x40)
+        }
+        assertEq(ptr, fmpBefore);
+        assertEq(fmpAfter - ptr, 0x80);
+    }
 }

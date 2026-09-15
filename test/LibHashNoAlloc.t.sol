@@ -166,4 +166,36 @@ contract LibHashNoAllocTest is Test {
         assertGe(gasNoAlloc, 30);
         assertLt(gasNoAlloc, gasSlow);
     }
+
+    /// The word-boundary lengths the fuzzer only reaches by chance: empty, a
+    /// partial word either side of a whole word, and one and two whole words.
+    /// `hashBytes` is `keccak256` of the bytes at every one of them, and at the
+    /// whole-word lengths `hashWords` over the same bytes read back as words
+    /// agrees.
+    function testHashBytesBoundaryLengths() public pure {
+        uint256[6] memory lengths = [uint256(0), 1, 31, 32, 33, 64];
+        for (uint256 k = 0; k < lengths.length; k++) {
+            uint256 n = lengths[k];
+            bytes memory data = new bytes(n);
+            for (uint256 i = 0; i < n; i++) {
+                data[i] = bytes1(uint8(i + 1));
+            }
+            assertEq(LibHashNoAlloc.hashBytes(data), keccak256(data));
+
+            if (n % 0x20 == 0) {
+                bytes32[] memory words = new bytes32[](n / 0x20);
+                uint256[] memory uints = new uint256[](n / 0x20);
+                for (uint256 i = 0; i < words.length; i++) {
+                    bytes32 w;
+                    assembly ("memory-safe") {
+                        w := mload(add(add(data, 0x20), mul(i, 0x20)))
+                    }
+                    words[i] = w;
+                    uints[i] = uint256(w);
+                }
+                assertEq(LibHashNoAlloc.hashWords(words), keccak256(data));
+                assertEq(LibHashNoAlloc.hashWords(uints), keccak256(data));
+            }
+        }
+    }
 }

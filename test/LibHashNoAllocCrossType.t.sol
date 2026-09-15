@@ -78,4 +78,92 @@ contract LibHashNoAllocCrossTypeTest is Test {
         assertEq(LibHashNoAlloc.hashWords(new bytes32[](0)), HASH_NIL);
         assertEq(LibHashNoAlloc.hashWords(new uint256[](0)), HASH_NIL);
     }
+
+    /// The `start` up to but excluding `end` bytes of `data`.
+    function slice(bytes memory data, uint256 start, uint256 end) internal pure returns (bytes memory) {
+        bytes memory out = new bytes(end - start);
+        for (uint256 i = 0; i < out.length; i++) {
+            out[i] = data[start + i];
+        }
+        return out;
+    }
+
+    /// The library's motivating claim: any two splits of one byte string pack
+    /// to that same string, so `abi.encodePacked` cannot tell them apart, while
+    /// `abi.encode` and the hash-of-hashes composition both can.
+    function testCompositionSeparatesPackedCollision(bytes memory s, uint256 i, uint256 j) public pure {
+        uint256 n = s.length;
+        vm.assume(n > 0);
+        // Two distinct split points in `[0, n]`, without rejecting any sample.
+        uint256 x = i % (n + 1);
+        uint256 y = j % n;
+        if (y >= x) {
+            y = y + 1;
+        }
+
+        bytes memory leftX = slice(s, 0, x);
+        bytes memory rightX = slice(s, x, n);
+        bytes memory leftY = slice(s, 0, y);
+        bytes memory rightY = slice(s, y, n);
+
+        assertEq(abi.encodePacked(leftX, rightX), s);
+        assertEq(abi.encodePacked(leftY, rightY), s);
+
+        assertTrue(keccak256(abi.encode(leftX, rightX)) != keccak256(abi.encode(leftY, rightY)));
+
+        bytes32 composedX =
+            LibHashNoAlloc.combineHashes(LibHashNoAlloc.hashBytes(leftX), LibHashNoAlloc.hashBytes(rightX));
+        bytes32 composedY =
+            LibHashNoAlloc.combineHashes(LibHashNoAlloc.hashBytes(leftY), LibHashNoAlloc.hashBytes(rightY));
+        assertTrue(composedX != composedY);
+    }
+
+    /// The NatSpec's own example. Every constant is `cast keccak` of the bytes
+    /// named beside it, so the composed values are fixed independently of the
+    /// library.
+    function testCompositionSeparatesAbcDef() public pure {
+        assertEq(abi.encodePacked(bytes("abc"), bytes("def")), abi.encodePacked(bytes("ab"), bytes("cdef")));
+        assertTrue(
+            keccak256(abi.encode(bytes("abc"), bytes("def"))) != keccak256(abi.encode(bytes("ab"), bytes("cdef")))
+        );
+
+        // keccak256("abc"), keccak256("def"), keccak256("ab"), keccak256("cdef").
+        bytes32 hashAbc = 0x4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45;
+        bytes32 hashDef = 0x34607c9bbfeb9c23509680f04363f298fdb0b5f9abe327304ecd1daca08cda9c;
+        bytes32 hashAb = 0x67fad3bfa1e0321bd021ca805ce14876e50acac8ca8532eda8cbf924da565160;
+        bytes32 hashCdef = 0xf97c40c9cdc009ac73cff1d514c11857db9ab190abd825bbcd5ad0b64185e180;
+        assertEq(LibHashNoAlloc.hashBytes("abc"), hashAbc);
+        assertEq(LibHashNoAlloc.hashBytes("def"), hashDef);
+        assertEq(LibHashNoAlloc.hashBytes("ab"), hashAb);
+        assertEq(LibHashNoAlloc.hashBytes("cdef"), hashCdef);
+
+        // keccak256 of each pair of the hashes above concatenated.
+        bytes32 composedAbcDef = 0x7383ca1a5e9358bfdeb8ed45f93766b2d3b60ad70d2489697d5b284570655c7f;
+        bytes32 composedAbCdef = 0x598e38d92add51cae619e07a954bc21a719abfc1dfc0beeeb0efeb5ffaee3612;
+        assertEq(LibHashNoAlloc.combineHashes(hashAbc, hashDef), composedAbcDef);
+        assertEq(LibHashNoAlloc.combineHashes(hashAb, hashCdef), composedAbCdef);
+        assertTrue(composedAbcDef != composedAbCdef);
+    }
+
+    /// A one-word list IS the hash of its bare word through every entry point,
+    /// unlike the nil-seeded fold of a one-item list of pointers, which is
+    /// `hash(nil + hash(x))`.
+    function testSingletonWordListIsItsWord(bytes32 x) public pure {
+        bytes32[] memory words = new bytes32[](1);
+        words[0] = x;
+        uint256[] memory uints = new uint256[](1);
+        uints[0] = uint256(x);
+        bytes32[1] memory staticWord = [x];
+        bytes32 staticHash;
+        assembly ("memory-safe") {
+            staticHash := keccak256(staticWord, 0x20)
+        }
+
+        bytes32 expected = keccak256(abi.encodePacked(x));
+        assertEq(LibHashNoAlloc.hashWords(words), expected);
+        assertEq(LibHashNoAlloc.hashWords(uints), expected);
+        assertEq(LibHashNoAlloc.hashBytes(abi.encodePacked(x)), expected);
+        assertEq(staticHash, expected);
+        assertTrue(expected != LibHashNoAlloc.combineHashes(HASH_NIL, expected));
+    }
 }

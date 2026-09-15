@@ -20,7 +20,7 @@ struct Foo {
 /// variable instead of a Yul `let` so that it can be asserted. The oracles use
 /// neither the library nor the assembly under test.
 contract HashPatternTest is Test {
-    /// "Hashing contigious words": a `Foo` is the 4 words `a`, `b` and the
+    /// "Hashing contiguous words": a `Foo` is the 4 words `a`, `b` and the
     /// pointers to `c` and `d`, so the hash is the hash of exactly those 4
     /// words. The pointer values come from the compiler, not from offsets into
     /// the struct.
@@ -40,7 +40,7 @@ contract HashPatternTest is Test {
         assertEq(hash_, keccak256(abi.encode(a, b, cPointer, dPointer)));
     }
 
-    /// "Hashing contigious words" for a static array: a `bytes32[3]` is its 3
+    /// "Hashing contiguous words" for a static array: a `bytes32[3]` is its 3
     /// words with no length prefix, so the word at the pointer is element 0
     /// and hashing the 3 words hashes the elements packed.
     function testHashStaticBytes32Array(bytes32[3] memory arr_) public pure {

@@ -17,7 +17,7 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 /// to use abi.encode, which includes the lengths disambiguating dynamic data.
 /// Something like `3"abc" + 3"def"` with the length prefixes won't collide with
 /// `2"ab" + 4"cdef"` but note that ABI provides neither a strong guarantee to
-/// be collision resitant on inputs (as far as I know, it's a coincidence that
+/// be collision resistant on inputs (as far as I know, it's a coincidence that
 /// this works), nor an efficient solution.
 ///
 /// - Abi encoding is a complex algorithm that is easily 1k+ gas for simple
@@ -33,7 +33,7 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 /// Consider that `hash(hash("abc") + hash("def"))` won't collide with
 /// `hash(hash("ab") + hash("cdef"))`. It should be easier to convince ourselves
 /// this is true for all possible pairs of byte strings than it is to convince
-/// ourselves that the ABI serialization is never ambigious. Inductively we can
+/// ourselves that the ABI serialization is never ambiguous. Inductively we can
 /// scale this to any data structure that is an ordered composition of byte
 /// strings, as long as the shape of the composition is fixed and every hash is
 /// only ever compared with hashes of values of the same type. Across types

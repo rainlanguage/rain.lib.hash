@@ -252,7 +252,7 @@ struct Foo {
 }
 ```
 
-If we had some `foo_` such that `Foo memory foo_ = Foo(...);` then `foo_` will
+If we had some `foo` such that `Foo memory foo = Foo(...);` then `foo` will
 be a pointer, either on the stack or in memory, depending on compiler
 optimisations.
 
@@ -290,11 +290,11 @@ Given the above, we can
 In all cases where the size of the data is a known number of words at compile
 time we are free to simply hash the known memory region.
 
-For example, we could hash a `foo_` as above like so
+For example, we could hash a `foo` as above like so
 
 ```solidity
 assembly ("memory-safe") {
-    let hash_ := keccak256(foo_, 0x80)
+    let hash := keccak256(foo, 0x80)
 }
 ```
 
@@ -323,13 +323,13 @@ Again, ignoring pointers for now, we can hash any dynamic length word list as
 
 ```solidity
 assembly ("memory-safe") {
-    // Assume bar_ is some dynamic length list of words
-    let hash_ := keccak256(
+    // Assume bar is some dynamic length list of words
+    let hash := keccak256(
         // Skip the length prefix
-        add(bar_, 0x20),
+        add(bar, 0x20),
         // Read the length prefix and multiply by 0x20 to know how many _words_
         // to hash
-        mul(mload(bar_), 0x20)
+        mul(mload(bar), 0x20)
     )
 }
 ```
@@ -363,12 +363,12 @@ need to convert between length/bytes. It is the same for `string` and `bytes`.
 
 ```solidity
 assembly ("memory-safe") {
-    // Assume baz_ is some bytes/string
-    let hash_ := keccak256(
+    // Assume baz is some bytes/string
+    let hash := keccak256(
         // Skip the length prefix
-        add(baz_, 0x20),
+        add(baz, 0x20),
         // Read the length prefix to know how many _bytes_ to hash
-        mload(baz_)
+        mload(baz)
     )
 }
 ```
@@ -401,10 +401,10 @@ To reliably handle pointers without allocations:
 Using our `Foo` struct from above as an example this would look like:
 
 - Hash the first two words as a contigious memory region of known size as `A`
-- Hash the dynamic word list `foo_.c` as `B`
+- Hash the dynamic word list `foo.c` as `B`
 - Write `A` and `B` to scratch space at `0` and `0x20` respectively
 - Hash the scratch space to produce `C`
-- Hash the bytes `foo_.d` as `D`
+- Hash the bytes `foo.d` as `D`
 - Write `C` and `D` to scratch space as above
 - Hash the scratch space to produce `E`, which is our final hash of `Foo`
 
@@ -412,37 +412,37 @@ As assembly it would look like
 
 ```solidity
 assembly ("memory-safe") {
-    // hash foo_.a and foo_.b together to produce hash A
+    // hash foo.a and foo.b together to produce hash A
     // store A in scratch
-    mstore(0, keccak256(foo_, 0x40))
+    mstore(0, keccak256(foo, 0x40))
 
-    // Follow the pointer to hash foo_.c into B
-    let deref_ := mload(add(foo_, 0x40))
+    // Follow the pointer to hash foo.c into B
+    let deref := mload(add(foo, 0x40))
     // Store B in scratch
-    mstore(0x20, keccak256(add(deref_, 0x20), mul(mload(deref_), 0x20)))
+    mstore(0x20, keccak256(add(deref, 0x20), mul(mload(deref), 0x20)))
 
     // Hash A and B to produce C which can be stored direct in scratch
     mstore(0, keccak256(0, 0x40))
 
-    // Follow the pointer to hash foo_.d
-    deref_ := mload(add(foo_, 0x60))
+    // Follow the pointer to hash foo.d
+    deref := mload(add(foo, 0x60))
     // Store D in scratch
-    mstore(0x20, keccak256(add(deref_, 0x20), mload(deref_)))
+    mstore(0x20, keccak256(add(deref, 0x20), mload(deref)))
 
     // Write C and D to scratch to produce the final hash E
-    let E := keccak256(0, 0x40)
+    let hash := keccak256(0, 0x40)
 }
 ```
 
 If we had a list of pointers, such as a `Foo[]` then this would be modelled as
 a simple fold/reduce-style accumulator, seeded with the nil hash (see below),
 where each item is hashed as above individually then hashed into the
-accumulator. I.e. Start from the nil hash N, hash `foos_[0]` to hash A, then
-write N and A to scratch and hash to produce B, then hash `foos_[1]` to hash C,
+accumulator. I.e. Start from the nil hash N, hash `foos[0]` to hash A, then
+write N and A to scratch and hash to produce B, then hash `foos[1]` to hash C,
 and hash B and C to produce D, etc.
 
 How much cheaper this process of iterating and accumulating a hash is than
-`keccak256(abi.encode(foos_))` depends almost entirely on how much data sits
+`keccak256(abi.encode(foos))` depends almost entirely on how much data sits
 behind each pointer. The fold pays a near-fixed cost per `keccak256` call (five
 per `Foo` above plus one to fold it into the accumulator) and only 6 gas per
 word hashed, whereas `abi.encode` copies every word of every element and writes

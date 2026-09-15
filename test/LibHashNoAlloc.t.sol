@@ -16,8 +16,8 @@ contract LibHashNoAllocTest is Test {
         assertEq(HASH_NIL, keccak256(""));
     }
 
-    function testHashBytes(bytes memory bs) public pure {
-        assertEq(LibHashNoAlloc.hashBytes(bs), LibHashSlow.hashBytesSlow(bs));
+    function testHashBytes(bytes memory data) public pure {
+        assertEq(LibHashNoAlloc.hashBytes(data), LibHashSlow.hashBytesSlow(data));
     }
 
     function testHashBytesEmpty() public pure {

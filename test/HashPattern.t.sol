@@ -25,10 +25,10 @@ contract HashPatternTest is Test {
     /// words. The pointer values come from the compiler, not from offsets into
     /// the struct.
     function testHashContiguousWords(uint256 a, address b, uint256[] memory c, bytes memory d) public pure {
-        Foo memory foo_ = Foo(a, b, c, d);
-        bytes32 hash_;
+        Foo memory foo = Foo(a, b, c, d);
+        bytes32 hash;
         assembly ("memory-safe") {
-            hash_ := keccak256(foo_, 0x80)
+            hash := keccak256(foo, 0x80)
         }
 
         uint256 cPointer;
@@ -37,124 +37,126 @@ contract HashPatternTest is Test {
             cPointer := c
             dPointer := d
         }
-        assertEq(hash_, keccak256(abi.encode(a, b, cPointer, dPointer)));
+        assertEq(hash, keccak256(abi.encode(a, b, cPointer, dPointer)));
     }
 
     /// "Hashing contigious words" for a static array: a `bytes32[3]` is its 3
     /// words with no length prefix, so the word at the pointer is element 0
     /// and hashing the 3 words hashes the elements packed.
-    function testHashStaticBytes32Array(bytes32[3] memory arr_) public pure {
-        bytes32 hash_;
-        bytes32 first_;
+    function testHashStaticBytes32Array(bytes32[3] memory arr) public pure {
+        bytes32 hash;
+        bytes32 first;
         assembly ("memory-safe") {
-            hash_ := keccak256(arr_, 0x60)
-            first_ := mload(arr_)
+            hash := keccak256(arr, 0x60)
+            first := mload(arr)
         }
-        assertEq(first_, arr_[0]);
-        assertEq(hash_, keccak256(abi.encodePacked(arr_)));
+        assertEq(first, arr[0]);
+        assertEq(hash, keccak256(abi.encodePacked(arr)));
     }
 
     /// The same for a `uint256[4]`: 4 words, no length prefix.
-    function testHashStaticUint256Array(uint256[4] memory arr_) public pure {
-        bytes32 hash_;
-        uint256 first_;
+    function testHashStaticUint256Array(uint256[4] memory arr) public pure {
+        bytes32 hash;
+        uint256 first;
         assembly ("memory-safe") {
-            hash_ := keccak256(arr_, 0x80)
-            first_ := mload(arr_)
+            hash := keccak256(arr, 0x80)
+            first := mload(arr)
         }
-        assertEq(first_, arr_[0]);
-        assertEq(hash_, keccak256(abi.encodePacked(arr_)));
+        assertEq(first, arr[0]);
+        assertEq(hash, keccak256(abi.encodePacked(arr)));
     }
 
     /// "Lists of pointers like `Foo[]`" are word lists: a length prefix then
     /// one word per element, each word the pointer to that element's `Foo`.
-    /// `new Foo[](n)` allocates the 0x20 + n * 0x20 list first and then one
-    /// 0x80 zero-initialised `Foo` per element, so the first `Foo` starts
-    /// exactly where the list ends.
-    function testFooListIsWordList(uint8 length) public pure {
-        uint256 n = length;
+    /// `new Foo[](length)` allocates the 0x20 + length * 0x20 list first and
+    /// then one 0x80 zero-initialised `Foo` per element, so the first `Foo`
+    /// starts exactly where the list ends.
+    function testFooListIsWordList(uint8 length8) public pure {
+        uint256 length = length8;
         uint256 fmpBefore;
         assembly ("memory-safe") {
             fmpBefore := mload(0x40)
         }
-        Foo[] memory foos_ = new Foo[](n);
+        Foo[] memory foos = new Foo[](length);
         uint256 ptr;
         uint256 fmpAfter;
         uint256 len;
         assembly ("memory-safe") {
-            ptr := foos_
+            ptr := foos
             fmpAfter := mload(0x40)
-            len := mload(foos_)
+            len := mload(foos)
         }
         assertEq(ptr, fmpBefore);
-        assertEq(len, n);
-        assertEq(fmpAfter - ptr, 0x20 + n * 0x20 + n * 0x80);
+        assertEq(len, length);
+        assertEq(fmpAfter - ptr, 0x20 + length * 0x20 + length * 0x80);
 
-        for (uint256 i = 0; i < n; i++) {
-            Foo memory foo_ = foos_[i];
+        for (uint256 i = 0; i < length; i++) {
+            Foo memory foo = foos[i];
             uint256 fooPointer;
             uint256 word;
             assembly ("memory-safe") {
-                fooPointer := foo_
-                word := mload(add(foos_, mul(add(i, 1), 0x20)))
+                fooPointer := foo
+                word := mload(add(foos, mul(add(i, 1), 0x20)))
             }
             assertEq(word, fooPointer);
             if (i == 0) {
-                assertEq(fooPointer, ptr + 0x20 + n * 0x20);
+                assertEq(fooPointer, ptr + 0x20 + length * 0x20);
             }
         }
     }
 
     /// "Hashing dynamic length list of words": the `length` words after the
     /// length prefix, i.e. the packed words without the prefix.
-    function testHashWordList(uint256[] memory bar_) public pure {
-        bytes32 hash_;
+    function testHashWordList(uint256[] memory bar) public pure {
+        bytes32 hash;
         assembly ("memory-safe") {
-            // Assume bar_ is some dynamic length list of words
-            hash_ := keccak256(
+            // Assume bar is some dynamic length list of words
+            hash := keccak256(
                 // Skip the length prefix
-                add(bar_, 0x20),
+                add(bar, 0x20),
                 // Read the length prefix and multiply by 0x20 to know how many _words_
                 // to hash
-                mul(mload(bar_), 0x20)
+                mul(mload(bar), 0x20)
             )
         }
-        assertEq(hash_, keccak256(abi.encodePacked(bar_)));
+        assertEq(hash, keccak256(abi.encodePacked(bar)));
     }
 
     /// The "Hashing dynamic length byte strings" example over `bytes`.
-    function hashBytesExample(bytes memory baz_) internal pure returns (bytes32 hash_) {
+    function hashBytesExample(bytes memory baz) internal pure returns (bytes32) {
+        bytes32 hash;
         assembly ("memory-safe") {
-            // Assume baz_ is some bytes/string
-            hash_ := keccak256(
+            // Assume baz is some bytes/string
+            hash := keccak256(
                 // Skip the length prefix
-                add(baz_, 0x20),
+                add(baz, 0x20),
                 // Read the length prefix to know how many _bytes_ to hash
-                mload(baz_)
+                mload(baz)
             )
         }
+        return hash;
     }
 
     /// "Hashing dynamic length byte strings": the `length` bytes after the
     /// length prefix, i.e. `keccak256` of the bytes themselves.
-    function testHashBytes(bytes memory baz_) public pure {
-        assertEq(hashBytesExample(baz_), keccak256(baz_));
+    function testHashBytes(bytes memory baz) public pure {
+        assertEq(hashBytesExample(baz), keccak256(baz));
     }
 
     /// "It is the same for `string` and `bytes`": the same example over a
     /// `string` is `keccak256` of the string's bytes.
-    function testHashString(string memory baz_) public pure {
-        bytes32 hash_;
+    function testHashString(string memory baz) public pure {
+        bytes32 hash;
         assembly ("memory-safe") {
-            // Assume baz_ is some bytes/string
-            hash_ := keccak256(
+            // Assume baz is some bytes/string
+            hash := keccak256(
                 // Skip the length prefix
-                add(baz_, 0x20),
+                add(baz, 0x20),
                 // Read the length prefix to know how many _bytes_ to hash
-                mload(baz_)
+                mload(baz)
             )
         }
-        assertEq(hash_, keccak256(bytes(baz_)));
+        assertEq(hash, keccak256(bytes(baz)));
     }
 
     /// "We MUST respect the true length": `hex"01"` and `hex"0100"` occupy the
@@ -162,49 +164,49 @@ contract HashPatternTest is Test {
     /// hash over the allocated word would not tell them apart; the example
     /// hashes only the `length` bytes and does.
     function testBytesTrueLength() public pure {
-        bytes memory one_ = hex"01";
-        bytes memory two_ = hex"0100";
-        uint256 wordOne_;
-        uint256 wordTwo_;
+        bytes memory one = hex"01";
+        bytes memory two = hex"0100";
+        uint256 wordOne;
+        uint256 wordTwo;
         assembly ("memory-safe") {
-            wordOne_ := mload(add(one_, 0x20))
-            wordTwo_ := mload(add(two_, 0x20))
+            wordOne := mload(add(one, 0x20))
+            wordTwo := mload(add(two, 0x20))
         }
-        assertEq(wordOne_, wordTwo_);
+        assertEq(wordOne, wordTwo);
 
-        bytes32 hashOne_ = hashBytesExample(one_);
-        bytes32 hashTwo_ = hashBytesExample(two_);
-        assertTrue(hashOne_ != hashTwo_);
-        assertEq(hashOne_, keccak256(hex"01"));
-        assertEq(hashTwo_, keccak256(hex"0100"));
+        bytes32 hashOne = hashBytesExample(one);
+        bytes32 hashTwo = hashBytesExample(two);
+        assertTrue(hashOne != hashTwo);
+        assertEq(hashOne, keccak256(hex"01"));
+        assertEq(hashTwo, keccak256(hex"0100"));
     }
 
     /// "Handling pointers": the prose steps A to E over `Foo`. A is the first
     /// two words, B is the word list `c`, C combines A and B, D is the bytes
     /// `d`, E combines C and D.
     function testHandlingPointers(uint256 a, address b, uint256[] memory c, bytes memory d) public pure {
-        Foo memory foo_ = Foo(a, b, c, d);
-        bytes32 e;
+        Foo memory foo = Foo(a, b, c, d);
+        bytes32 hash;
         assembly ("memory-safe") {
-            // hash foo_.a and foo_.b together to produce hash A
+            // hash foo.a and foo.b together to produce hash A
             // store A in scratch
-            mstore(0, keccak256(foo_, 0x40))
+            mstore(0, keccak256(foo, 0x40))
 
-            // Follow the pointer to hash foo_.c into B
-            let deref_ := mload(add(foo_, 0x40))
+            // Follow the pointer to hash foo.c into B
+            let deref := mload(add(foo, 0x40))
             // Store B in scratch
-            mstore(0x20, keccak256(add(deref_, 0x20), mul(mload(deref_), 0x20)))
+            mstore(0x20, keccak256(add(deref, 0x20), mul(mload(deref), 0x20)))
 
             // Hash A and B to produce C which can be stored direct in scratch
             mstore(0, keccak256(0, 0x40))
 
-            // Follow the pointer to hash foo_.d
-            deref_ := mload(add(foo_, 0x60))
+            // Follow the pointer to hash foo.d
+            deref := mload(add(foo, 0x60))
             // Store D in scratch
-            mstore(0x20, keccak256(add(deref_, 0x20), mload(deref_)))
+            mstore(0x20, keccak256(add(deref, 0x20), mload(deref)))
 
             // Write C and D to scratch to produce the final hash E
-            e := keccak256(0, 0x40)
+            hash := keccak256(0, 0x40)
         }
 
         bytes32 hashA = keccak256(abi.encode(a, b));
@@ -212,6 +214,6 @@ contract HashPatternTest is Test {
         bytes32 hashC = keccak256(abi.encodePacked(hashA, hashB));
         bytes32 hashD = keccak256(d);
         bytes32 hashE = keccak256(abi.encodePacked(hashC, hashD));
-        assertEq(e, hashE);
+        assertEq(hash, hashE);
     }
 }

@@ -5,6 +5,13 @@ pragma solidity ^0.8.25;
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibHashNoAlloc, HASH_NIL} from "../src/LibHashNoAlloc.sol";
 
+/// A struct whose every field is a pointer, so there is no data before the
+/// first one.
+struct TwoBytes {
+    bytes d1;
+    bytes d2;
+}
+
 /// Values of different types whose hashed bytes coincide hash identically.
 /// Every assertion here holds because the library hashes raw memory with no
 /// type, length or domain tag, and every hash is only comparable with hashes of
@@ -77,5 +84,69 @@ contract LibHashNoAllocCrossTypeTest is Test {
         assertEq(LibHashNoAlloc.hashBytes(""), HASH_NIL);
         assertEq(LibHashNoAlloc.hashWords(new bytes32[](0)), HASH_NIL);
         assertEq(LibHashNoAlloc.hashWords(new uint256[](0)), HASH_NIL);
+    }
+
+    /// README "Handling pointers" walks a struct whose fields are all pointers
+    /// from the hash of the zero bytes preceding the first pointer, which is
+    /// the same nil seed the fold of a list starts from, so the walk and the
+    /// fold build the same tree. `struct { bytes d1; bytes d2; }` hashes as the
+    /// `bytes[]` `[d1, d2]` for every value.
+    function testPointerOnlyStructEqualsFoldOfList(bytes memory d1, bytes memory d2) public pure {
+        TwoBytes memory s = TwoBytes(d1, d2);
+        bytes32 walked;
+        assembly ("memory-safe") {
+            // Hash of all data up to the first pointer, of which there is none.
+            mstore(0, keccak256(s, 0))
+            let deref := mload(s)
+            mstore(0x20, keccak256(add(deref, 0x20), mload(deref)))
+            mstore(0, keccak256(0, 0x40))
+            deref := mload(add(s, 0x20))
+            mstore(0x20, keccak256(add(deref, 0x20), mload(deref)))
+            walked := keccak256(0, 0x40)
+        }
+
+        bytes[] memory list = new bytes[](2);
+        list[0] = d1;
+        list[1] = d2;
+        bytes32 folded = HASH_NIL;
+        for (uint256 i = 0; i < list.length; i++) {
+            folded = LibHashNoAlloc.combineHashes(folded, LibHashNoAlloc.hashBytes(list[i]));
+        }
+
+        bytes32 expected = keccak256(abi.encodePacked(keccak256(""), keccak256(d1)));
+        expected = keccak256(abi.encodePacked(expected, keccak256(d2)));
+
+        assertEq(walked, expected);
+        assertEq(folded, expected);
+    }
+
+    /// The items region of a `T[]` is laid out exactly as an `n`-field struct of
+    /// `T` pointer fields, so walking that region the way README "Handling
+    /// pointers" walks a struct is the fold of the list, at every length.
+    function testPointerOnlyStructEqualsFoldOfListAnyLength(bytes[] memory fields) public pure {
+        bytes32 walked;
+        assembly ("memory-safe") {
+            let s := add(fields, 0x20)
+            mstore(0, keccak256(s, 0))
+            for { let i := 0 } lt(i, mload(fields)) { i := add(i, 1) } {
+                let deref := mload(add(s, mul(i, 0x20)))
+                mstore(0x20, keccak256(add(deref, 0x20), mload(deref)))
+                mstore(0, keccak256(0, 0x40))
+            }
+            walked := mload(0)
+        }
+
+        bytes32 folded = HASH_NIL;
+        bytes32 expected = keccak256("");
+        for (uint256 i = 0; i < fields.length; i++) {
+            folded = LibHashNoAlloc.combineHashes(folded, LibHashNoAlloc.hashBytes(fields[i]));
+            expected = keccak256(abi.encodePacked(expected, keccak256(fields[i])));
+        }
+
+        assertEq(walked, expected);
+        assertEq(folded, expected);
+        if (fields.length == 0) {
+            assertEq(walked, HASH_NIL);
+        }
     }
 }

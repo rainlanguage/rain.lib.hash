@@ -4,6 +4,12 @@ pragma solidity ^0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibHashNoAlloc, HASH_NIL} from "../../../src/lib/LibHashNoAlloc.sol";
+import {LibHashSlow, HASH_WORDS_ONE_TWO} from "../../lib/LibHashSlow.sol";
+
+struct TwoBytes {
+    bytes d1;
+    bytes d2;
+}
 
 /// Values of different types whose hashed bytes coincide hash identically.
 /// Every assertion here holds because the library hashes raw memory with no
@@ -19,7 +25,7 @@ contract LibHashNoAllocCrossTypeTest is Test {
         bytes memory leaf = abi.encodePacked(hc, hd);
         bytes32 node = LibHashNoAlloc.combineHashes(hc, hd);
         assertEq(LibHashNoAlloc.hashBytes(leaf), node);
-        assertEq(node, keccak256(leaf));
+        assertEq(node, LibHashSlow.hashBytesSlow(leaf));
     }
 
     /// The same `32n` bytes hash identically as `bytes`, `bytes32[]` and
@@ -30,7 +36,7 @@ contract LibHashNoAllocCrossTypeTest is Test {
         for (uint256 i = 0; i < words.length; i++) {
             uints[i] = uint256(words[i]);
         }
-        bytes32 expected = keccak256(raw);
+        bytes32 expected = LibHashSlow.hashBytesSlow(raw);
         assertEq(LibHashNoAlloc.hashBytes(raw), expected);
         assertEq(LibHashNoAlloc.hashWords(words), expected);
         assertEq(LibHashNoAlloc.hashWords(uints), expected);
@@ -47,7 +53,7 @@ contract LibHashNoAllocCrossTypeTest is Test {
         bytes32[] memory dynamicWords = new bytes32[](2);
         dynamicWords[0] = a;
         dynamicWords[1] = b;
-        bytes32 expected = keccak256(abi.encodePacked(a, b));
+        bytes32 expected = LibHashSlow.combineHashesSlow(a, b);
         assertEq(fixedHash, expected);
         assertEq(LibHashNoAlloc.hashWords(dynamicWords), expected);
         assertEq(LibHashNoAlloc.hashBytes(abi.encodePacked(a, b)), expected);
@@ -55,9 +61,9 @@ contract LibHashNoAllocCrossTypeTest is Test {
     }
 
     /// Known answer: the 64 bytes `1` then `2` hash to the same value through
-    /// every entry point. The constant is `cast keccak` of those 64 bytes.
+    /// every entry point.
     function testWordsOneTwoKnownAnswer() public pure {
-        bytes32 expected = 0xe90b7bceb6e7df5418fb78d8ee546e97c83a08bbccc01a0644d599ccd2a7c2e0;
+        bytes32 expected = HASH_WORDS_ONE_TWO;
         bytes32[] memory words = new bytes32[](2);
         words[0] = bytes32(uint256(1));
         words[1] = bytes32(uint256(2));
@@ -77,5 +83,60 @@ contract LibHashNoAllocCrossTypeTest is Test {
         assertEq(LibHashNoAlloc.hashBytes(""), HASH_NIL);
         assertEq(LibHashNoAlloc.hashWords(new bytes32[](0)), HASH_NIL);
         assertEq(LibHashNoAlloc.hashWords(new uint256[](0)), HASH_NIL);
+    }
+
+    function testPointerOnlyStructEqualsFoldOfList(bytes memory d1, bytes memory d2) public pure {
+        TwoBytes memory s = TwoBytes(d1, d2);
+        bytes32 walked;
+        assembly ("memory-safe") {
+            mstore(0, keccak256(s, 0))
+            let deref := mload(s)
+            mstore(0x20, keccak256(add(deref, 0x20), mload(deref)))
+            mstore(0, keccak256(0, 0x40))
+            deref := mload(add(s, 0x20))
+            mstore(0x20, keccak256(add(deref, 0x20), mload(deref)))
+            walked := keccak256(0, 0x40)
+        }
+
+        bytes[] memory list = new bytes[](2);
+        list[0] = d1;
+        list[1] = d2;
+        bytes32 folded = HASH_NIL;
+        for (uint256 i = 0; i < list.length; i++) {
+            folded = LibHashNoAlloc.combineHashes(folded, LibHashNoAlloc.hashBytes(list[i]));
+        }
+
+        bytes32 expected = keccak256(abi.encodePacked(keccak256(""), keccak256(d1)));
+        expected = keccak256(abi.encodePacked(expected, keccak256(d2)));
+
+        assertEq(walked, expected);
+        assertEq(folded, expected);
+    }
+
+    function testPointerOnlyStructEqualsFoldOfListAnyLength(bytes[] memory fields) public pure {
+        bytes32 walked;
+        assembly ("memory-safe") {
+            let s := add(fields, 0x20)
+            mstore(0, keccak256(s, 0))
+            for { let i := 0 } lt(i, mload(fields)) { i := add(i, 1) } {
+                let deref := mload(add(s, mul(i, 0x20)))
+                mstore(0x20, keccak256(add(deref, 0x20), mload(deref)))
+                mstore(0, keccak256(0, 0x40))
+            }
+            walked := mload(0)
+        }
+
+        bytes32 folded = HASH_NIL;
+        bytes32 expected = keccak256("");
+        for (uint256 i = 0; i < fields.length; i++) {
+            folded = LibHashNoAlloc.combineHashes(folded, LibHashNoAlloc.hashBytes(fields[i]));
+            expected = keccak256(abi.encodePacked(expected, keccak256(fields[i])));
+        }
+
+        assertEq(walked, expected);
+        assertEq(folded, expected);
+        if (fields.length == 0) {
+            assertEq(walked, HASH_NIL);
+        }
     }
 }

@@ -540,16 +540,36 @@ one exists for `abi.encode` either :)
 
 ### Local environment & CI
 
-Uses nixos.
+Install `nix` with flakes enabled - https://nixos.org/download.html.
 
-Install `nix` - https://nixos.org/download.html.
+`nix develop` drops into rainix's Solidity-only `sol-shell`, the same kind of
+shell CI runs in. Please ONLY use the nix version of `foundry` for development,
+to ensure versions are all compatible.
 
-Run `nix develop` in this repo to drop into the shell. Please ONLY use the nix
-version of `foundry` for development, to ensure versions are all compatible.
+```
+nix develop
+forge soldeer install
+forge test
+```
 
-The commands CI runs live in the shared `rainix-sol` workflow at
-https://github.com/rainlanguage/rainix, which `.github/workflows/rainix-sol.yaml`
-calls; `flake.nix` only re-exports the rainix packages and dev shells.
+`dependencies/` and `remappings.txt` are gitignored, so `forge soldeer install`
+is required before the first build in a fresh clone.
+
+`.github/workflows/rainix-sol.yaml` calls the shared `rainix-sol` workflow at
+https://github.com/rainlanguage/rainix, which runs `forge soldeer install` and
+then these, each in `sol-shell`:
+
+```
+slither .
+forge fmt --check
+rainix-sol-single-contract
+reuse lint
+forge test -vvv
+```
+
+Run them locally before pushing. CI pins its own rainix revision inside the
+reusable workflow, so `nix flake update rainix` is what moves the local shell
+onto rainix `main`.
 
 ## Legal stuff
 

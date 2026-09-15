@@ -161,7 +161,7 @@ information to the raw data as part of the encoding. Something like
 head/tail structures that encode the offsets of the dynamic length data in an
 overall prefix to the encoded data.
 
-https://docs.soliditylang.org/en/develop/abi-spec.html#formal-specification-of-the-encoding
+https://docs.soliditylang.org/en/stable/abi-spec.html#formal-specification-of-the-encoding
 
 Importantly, in light of the discussion in EIP712, the lengths are fixed length
 themselves, always represented as a `uint256`. The canonical encoding of one
@@ -213,7 +213,7 @@ This saving is of course most noticeable when the algorithm is relatively
 efficient, or involves a tight internal loop over encoding, such that the
 encoding then starts to dominate the profile. Even in cases where that is not
 true, such as comparing the reference SSTORE2 implementation to
-[LibDataContract](https://github.com/rainlanguage/rain.datacontract/blob/main/src/lib/LibDataContract.sol) we still can see 1k+ gas savings per-write for common usage patterns, with
+[LibDataContract](https://github.com/rainlanguage/rain.datacontract/blob/252093fbf9edcbe1c0c73c33b16bdefaff53aef1/src/LibDataContract.sol) we still can see 1k+ gas savings per-write for common usage patterns, with
 identical outcomes.
 
 It really just seems to come down to the fact that memory expansion and bulk
@@ -248,7 +248,7 @@ write assembly the moment we want to do anything other than `abi.encode`.
 
 The memory layout of data in Solidity is very regular across all data types.
 
-https://docs.soliditylang.org/en/v0.8.19/internals/layout_in_memory.html
+https://docs.soliditylang.org/en/stable/internals/layout_in_memory.html
 
 Note that the memory layout is completely different to e.g. the storage layout.
 Everything discussed here is specific to data in memory and does not generalise

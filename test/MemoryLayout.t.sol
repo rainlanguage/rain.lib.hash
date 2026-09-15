@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 
-/// The struct README.md "Memory layout" describes: a 4-word region, one word
+/// The struct README.md "The pattern" describes: a 4-word region, one word
 /// per member whatever the member's type.
 struct Foo {
     uint256 a;
@@ -229,8 +229,8 @@ contract MemoryLayoutTest is Test {
     }
 
     /// Nesting depth does not change the rule: an `Outermost` holding an
-    /// `Outer` holding a `Foo` is 2 words at each level, and the pointer word
-    /// at each level is the pointer to the next struct down.
+    /// `Outer` holding a `Foo` is 2 words at each of the two outer levels, and
+    /// the pointer word at each level is the pointer to the next struct down.
     function testDeeplyNestedStructIsOnePointerWordPerLevel(uint256 x, uint256 y) public pure {
         Foo memory inner = Foo(1, ADDR, new uint256[](0), "");
         uint256 fmp0;

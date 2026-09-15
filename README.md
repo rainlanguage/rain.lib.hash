@@ -389,8 +389,7 @@ Using our `Foo` struct from above as an example this would look like:
 - Hash the scratch space to produce `E`, which is our final hash of `Foo`
 
 `testHandlingPointers` in `test/HashPattern.t.sol` is those steps as assembly,
-each field read at the offset the compiler gives it, checked against A to E
-rebuilt with `abi.encode`.
+checked against A to E rebuilt with `abi.encode`.
 
 If we had a list of pointers, such as a `Foo[]` then this would be modelled as
 a simple fold/reduce-style accumulator, seeded with the nil hash (see below),

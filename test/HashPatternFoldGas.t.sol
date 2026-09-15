@@ -4,17 +4,14 @@ pragma solidity ^0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {HASH_NIL} from "../src/LibHashNoAlloc.sol";
-
-struct Foo {
-    uint256 a;
-    address b;
-    uint256[] c;
-    bytes d;
-}
+import {Foo} from "./lib/LibFooOracle.sol";
 
 /// The gas bands asserted here are the ones README.md "Handling pointers"
 /// states.
 contract HashPatternFoldGasTest is Test {
+    /// The README's assembly rather than `LibFooOracle.hashFoo`: the oracle is
+    /// built from `abi.encode`, so it allocates, which is the cost this file
+    /// measures on the other side.
     function hashFoo(Foo memory foo_) internal pure returns (bytes32) {
         bytes32 e;
         assembly ("memory-safe") {

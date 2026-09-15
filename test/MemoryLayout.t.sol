@@ -45,13 +45,10 @@ struct SubWord {
     bytes4 b;
 }
 
-/// A one-field struct: a reference type that is exactly one word wide.
 struct One {
     uint256 v;
 }
 
-/// Three reference members that are each exactly one word wide. Each is one
-/// pointer word of the `OneWordRefs`, so it is 4 words like `Foo`.
 struct OneWordRefs {
     uint256 x;
     uint256[1] arr;
@@ -59,8 +56,6 @@ struct OneWordRefs {
     bytes32[1] barr;
 }
 
-/// A static array member wider than one word: one pointer word, not two
-/// inlined words.
 struct WithStaticArray {
     uint256 x;
     uint256[2] arr;
@@ -306,17 +301,12 @@ contract MemoryLayoutTest is Test {
         assertEq(w3, dPtr);
     }
 
-    /// Reference members that are exactly one word wide are still pointer
-    /// words: an `OneWordRefs` is 4 words, and words 1 to 3 are the pointers
-    /// Solidity holds for the `uint256[1]`, the one-field `One` and the
-    /// `bytes32[1]`, not the single values 7, 8 and 9 they hold.
     function testOneWordReferenceMembersArePointerWords(uint256 x) public pure {
         uint256[1] memory arr = [uint256(7)];
         One memory one = One(8);
         bytes32[1] memory barr = [bytes32(uint256(9))];
-        // Scratch for the words read back, allocated before the struct so the
-        // struct is the only allocation between the two free memory pointer
-        // reads.
+        // Allocated before the struct so the struct is the only allocation
+        // between the two free memory pointer reads.
         uint256[4] memory w;
         uint256[3] memory p;
         uint256 fmpBefore;
@@ -348,9 +338,6 @@ contract MemoryLayoutTest is Test {
         assertNotEq(w[3], 9);
     }
 
-    /// A static array member is one pointer word whatever its length: a
-    /// `WithStaticArray` is 2 words and its second word is the pointer
-    /// Solidity holds for the `uint256[2]`, not the array's 2 words inlined.
     function testStaticArrayMemberIsPointerWord(uint256 x, uint256[2] memory arr) public pure {
         uint256 fmpBefore;
         assembly ("memory-safe") {

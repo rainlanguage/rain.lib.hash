@@ -254,7 +254,7 @@ Note that the memory layout is completely different to e.g. the storage layout.
 Everything discussed here is specific to data in memory and does not generalise
 at all.
 
-All non-struct types end up in one of 3 buckets:
+Every type ends up in one of 3 buckets:
 
 - 1 or more 32 byte words, of `length` defined by the type
 - A 32 byte `length` followed by `length` 32 byte words (most dynamic types)
@@ -520,10 +520,14 @@ the type, and each step relies on nothing but the collision resistance of
 - A pointer: `hash(hash(a) + hash(b))` equals `hash(hash(c) + hash(d))` only if
   `hash(a)` = `hash(c)` and `hash(b)` = `hash(d)`, and as `a`, `c` share a type
   and `b`, `d` share a type, by induction `a` = `c` and `b` = `d`.
-- A list of pointers folded from the nil hash: the fold over `n` items is
-  `hash(fold(n - 1) + hash(item))` and the fold over 0 items is the hash of 0
-  bytes, which cannot equal the hash of the 64 bytes any longer fold hashes.
-  Equal folds therefore have equal lengths and, by induction, equal items.
+- A list of pointers folded from the nil hash: the fold over 0 items is the
+  hash of 0 bytes and the fold over `n` >= 1 items is
+  `hash(fold(n - 1) + hash(item))`, a hash of 64 bytes. If the folds over `n`
+  and `m` items are equal, with `n` <= `m`, peeling one layer at a time gives
+  `fold(n - 1)` = `fold(m - 1)` and equal last-item hashes, down to
+  `fold(0)` = `fold(m - n)`; the hash of 0 bytes cannot equal a hash of 64
+  bytes, so `n` = `m`, and each peeled pair of equal item hashes is, by
+  induction over the item type, a pair of equal items.
 
 As `keccak256` always produces hashes exactly 32 bytes long for all inputs, a
 node is always exactly two hashes and needs no length prefix, so we avoid the

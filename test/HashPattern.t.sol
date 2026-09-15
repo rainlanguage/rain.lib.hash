@@ -172,7 +172,6 @@ contract HashPatternTest is Test {
             // Store D in scratch
             mstore(0x20, keccak256(add(deref_, 0x20), mload(deref_)))
 
-            // Write C and D to scratch to produce the final hash E
             e := keccak256(0, 0x40)
         }
 

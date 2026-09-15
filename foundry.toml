@@ -9,6 +9,11 @@ evm_version = "cancun"
 
 libs = ["dependencies"]
 
+fs_permissions = [
+  { access = "read", path = "./README.md" },
+  { access = "read", path = "./test" },
+]
+
 fuzz.runs = 1024
 
 [dependencies]

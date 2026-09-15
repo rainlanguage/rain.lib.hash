@@ -71,11 +71,7 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 /// ```
 /// Every struct field is 0x20 bytes in memory so 3 fields = 0x60 bytes to hash
 /// always, with the exception of dynamic types. This costs one `keccak256`
-/// opcode plus a few stack operations. `keccak256(abi.encode(header_))` first
-/// allocates a fresh `bytes` buffer (a length word plus the three member
-/// words), copies the three fields into it and bumps the free memory pointer,
-/// then pays the same hash; the encoding step alone costs more gas than the
-/// whole in-place hash.
+/// opcode plus a few stack operations.
 ///
 /// The functions taking a memory reference read the length word the type
 /// guarantees; a reference whose length word does not describe its allocation

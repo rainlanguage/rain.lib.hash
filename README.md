@@ -269,8 +269,11 @@ sign-extended, so the word is `uint256(int256(x))`: `int8(-1)` is `0xff…ff`, n
 is `uint256(bytes32(x))`: `bytes4(0x01020304)` is `0x01020304` followed by 28
 zero bytes, not `0x00…01020304`. The hash is of the word as laid out.
 
-Any types that are larger, or potentially larger than 1 word are pointers to that
-data, from the perspective of the struct.
+Reference types (arrays of any length including static ones such as
+`uint256[1]`, structs of any size including a single field, `bytes` and
+`string`) are pointers to that data, from the perspective of the struct. Only
+value types are laid out inline. Size does not decide it: a `uint256[1]` member
+is exactly one word and is still a pointer word.
 
 This logic is applied recursively.
 
@@ -290,19 +293,16 @@ Given the above, we can
 In all cases where the size of the data is a known number of words at compile
 time we are free to simply hash the known memory region.
 
-For example, we could hash a `foo_` as above like so
-
-```solidity
-assembly ("memory-safe") {
-    let hash_ := keccak256(foo_, 0x80)
-}
-```
+For example, a `foo_` as above is hashed by a single `keccak256` reading the
+struct's whole 4 words from the pointer. `testHashContiguousWords` in
+`test/HashPattern.t.sol` is that assembly, checked against those 4 words read
+back independently.
 
 Ignore for now that `c` and `d` are pointers, as that will be discussed later in
 this document.
 
-The basic point is that the code example shows that Yul handles what we need
-for known memory regions very naturally.
+The basic point is that Yul handles what we need for known memory regions very
+naturally.
 
 Other than implementation bugs, there's no potential for
 
@@ -319,20 +319,11 @@ lists of pointers like `Foo[]`, single byte values `bytes1[]`, etc.
 
 The ONLY exceptions to the rule are `bytes` and `string` types.
 
-Again, ignoring pointers for now, we can hash any dynamic length word list as
-
-```solidity
-assembly ("memory-safe") {
-    // Assume bar_ is some dynamic length list of words
-    let hash_ := keccak256(
-        // Skip the length prefix
-        add(bar_, 0x20),
-        // Read the length prefix and multiply by 0x20 to know how many _words_
-        // to hash
-        mul(mload(bar_), 0x20)
-    )
-}
-```
+Again, ignoring pointers for now, we can hash any dynamic length word list with
+a single `keccak256` that starts one word past the pointer, skipping the length
+prefix, and runs for the length prefix multiplied by a word, converting that
+count of words into a count of bytes. `testHashWordList` in
+`test/HashPattern.t.sol` is that assembly.
 
 Note that here we DO NOT include the length prefix in the bytes that we hash.
 
@@ -359,23 +350,15 @@ the end of the data, so the pattern never depends on what the allocator does
 beyond it, including where it leaves the free memory pointer.
 
 The assembly for this is actually simpler than dealing with words as we do not
-need to convert between length/bytes. It is the same for `string` and `bytes`.
-
-```solidity
-assembly ("memory-safe") {
-    // Assume baz_ is some bytes/string
-    let hash_ := keccak256(
-        // Skip the length prefix
-        add(baz_, 0x20),
-        // Read the length prefix to know how many _bytes_ to hash
-        mload(baz_)
-    )
-}
-```
+need to convert between length/bytes: skip the length prefix as above, then take
+the length prefix as the count of bytes it already is. It is the same for
+`string` and `bytes`. `testHashBytes` and `testHashString` in
+`test/HashPattern.t.sol` are that assembly over each type, and
+`testBytesTrueLength` is the `hex"01"` / `hex"0100"` pair above.
 
 Note that pointers never appear in `bytes` nor `string`, or if they do, they are
-not going to be dereferenced by our hashing logic. This assembly above is all
-that is needed to hash `bytes` and `string` types.
+not going to be dereferenced by our hashing logic. That single `keccak256` is
+all that is needed to hash `bytes` and `string` types.
 
 #### Handling pointers
 
@@ -383,9 +366,8 @@ It would be pointless to hash pointers (no pun intended). A pointer is merely an
 offset in memory, which has very little to do with the data on the other side of
 it, and is not even deterministic.
 
-We find pointers in Solidity wherever something that is potentially larger than
-1 word needs to fit in a single word slot. For example, any time a struct or
-dynamic type is an item or field in another struct or dynamic type.
+We find pointers in Solidity wherever a reference type (array, struct, `bytes`,
+`string`) is an item or field in another struct or list, whatever its size.
 
 Solidity does not allow mixed type lists so all pointers are at least found in
 predictable positions. We always know at compile time whether something is a
@@ -408,31 +390,8 @@ Using our `Foo` struct from above as an example this would look like:
 - Write `C` and `D` to scratch space as above
 - Hash the scratch space to produce `E`, which is our final hash of `Foo`
 
-As assembly it would look like
-
-```solidity
-assembly ("memory-safe") {
-    // hash foo_.a and foo_.b together to produce hash A
-    // store A in scratch
-    mstore(0, keccak256(foo_, 0x40))
-
-    // Follow the pointer to hash foo_.c into B
-    let deref_ := mload(add(foo_, 0x40))
-    // Store B in scratch
-    mstore(0x20, keccak256(add(deref_, 0x20), mul(mload(deref_), 0x20)))
-
-    // Hash A and B to produce C which can be stored direct in scratch
-    mstore(0, keccak256(0, 0x40))
-
-    // Follow the pointer to hash foo_.d
-    deref_ := mload(add(foo_, 0x60))
-    // Store D in scratch
-    mstore(0x20, keccak256(add(deref_, 0x20), mload(deref_)))
-
-    // Write C and D to scratch to produce the final hash E
-    let E := keccak256(0, 0x40)
-}
-```
+`testHandlingPointers` in `test/HashPattern.t.sol` is those steps as assembly,
+checked against A to E rebuilt with `abi.encode`.
 
 If we had a list of pointers, such as a `Foo[]` then this would be modelled as
 a simple fold/reduce-style accumulator, seeded with the nil hash (see below),

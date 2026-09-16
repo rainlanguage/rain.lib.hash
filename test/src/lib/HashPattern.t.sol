@@ -124,6 +124,10 @@ contract HashPatternTest is Test {
         assertEq(hashBytesExample(bytes(baz)), keccak256(bytes(baz)));
     }
 
+    /// "We MUST respect the true length": `hex"01"` and `hex"0100"` occupy the
+    /// same single data word, `0x01` followed by 31 zero bytes (1 and 2 bytes,
+    /// both zero-padded to 0x20), so a hash over the allocated word collides;
+    /// the example hashes only the `length` bytes and does tell them apart.
     function testBytesTrueLength() public pure {
         bytes memory one = hex"01";
         bytes memory two = hex"0100";
@@ -174,6 +178,7 @@ contract HashPatternTest is Test {
             // Store D in scratch
             mstore(0x20, keccak256(add(deref, 0x20), mload(deref)))
 
+            // Hash C and D, already in scratch, to produce the final hash E
             hash := keccak256(0, 0x40)
         }
 

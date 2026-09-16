@@ -224,6 +224,9 @@ contract MemoryLayoutTest is Test {
         assertEq(LibMemorySnapshot.wordAt(ptr, 0x20), innerPtr);
     }
 
+    /// Nesting depth does not change the rule: an `Outermost` holding an
+    /// `Outer` holding a `Foo` is 2 words at each of the two outer levels, and
+    /// the pointer word at each level is the pointer to the next struct down.
     function testDeeplyNestedStructIsOnePointerWordPerLevel(uint256 x, uint256 y) public pure {
         Foo memory inner = Foo(1, ADDR, new uint256[](0), "");
         uint256 fmp0 = LibMemorySnapshot.freeMemoryPointer();
@@ -258,6 +261,9 @@ contract MemoryLayoutTest is Test {
         assertEq(midW1, x);
     }
 
+    /// `new Foo[](n)` allocates the 0x20 + n * 0x20 word list first and then
+    /// one 0x80 `Foo` per element in element order, each default-initialised
+    /// (value members 0, dynamic members pointing at the zero slot).
     function testNewFooArrayAllocatesListThenElements(uint8 length) public pure {
         uint256 n = length;
         uint256 fmpBefore;

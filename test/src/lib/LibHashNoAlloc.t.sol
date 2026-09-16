@@ -13,6 +13,11 @@ uint256 constant KECCAK256_BASE_GAS = 30;
 /// @dev Gas KECCAK256 charges per 32 byte word of input.
 uint256 constant KECCAK256_WORD_GAS = 6;
 
+/// Each library function against the `LibHashSlow` builtin oracle, the gas
+/// floor the KECCAK256 schedule gives for the bytes each one hashes, that no
+/// function moves the free memory pointer at `0x40` or the zero slot at `0x60`,
+/// and that hashing words where they sit costs less than packing them into a
+/// fresh allocation first.
 contract LibHashNoAllocTest is Test {
     /// Gas a KECCAK256 over `byteLength` bytes costs, excluding any memory
     /// expansion, which no function under test pays.

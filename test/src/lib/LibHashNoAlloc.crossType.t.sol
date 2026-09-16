@@ -6,6 +6,8 @@ import {Test} from "forge-std-1.16.2/src/Test.sol";
 import {LibHashNoAlloc, HASH_NIL} from "../../../src/lib/LibHashNoAlloc.sol";
 import {LibHashSlow, HASH_WORDS_ONE_TWO} from "../../lib/LibHashSlow.sol";
 
+/// A struct whose every field is a pointer, so there is no data before the
+/// first one.
 struct TwoBytes {
     bytes d1;
     bytes d2;
@@ -83,10 +85,16 @@ contract LibHashNoAllocCrossTypeTest is Test {
         assertEq(LibHashNoAlloc.hashWords(new uint256[](0)), HASH_NIL);
     }
 
+    /// README "Handling pointers" walks a struct whose fields are all pointers
+    /// from the hash of the zero bytes preceding the first pointer, which is
+    /// the same nil seed the fold of a list starts from, so the walk and the
+    /// fold build the same tree. `struct { bytes d1; bytes d2; }` hashes as the
+    /// `bytes[]` `[d1, d2]` for every value.
     function testPointerOnlyStructEqualsFoldOfList(bytes memory d1, bytes memory d2) public pure {
         TwoBytes memory s = TwoBytes(d1, d2);
         bytes32 walked;
         assembly ("memory-safe") {
+            // Hash of all data up to the first pointer, of which there is none.
             mstore(0, keccak256(s, 0))
             let deref := mload(s)
             mstore(0x20, keccak256(add(deref, 0x20), mload(deref)))
@@ -111,6 +119,9 @@ contract LibHashNoAllocCrossTypeTest is Test {
         assertEq(folded, expected);
     }
 
+    /// The items region of a `T[]` is laid out exactly as an `n`-field struct of
+    /// `T` pointer fields, so walking that region the way README "Handling
+    /// pointers" walks a struct is the fold of the list, at every length.
     function testPointerOnlyStructEqualsFoldOfListAnyLength(bytes[] memory fields) public pure {
         bytes32 walked;
         assembly ("memory-safe") {

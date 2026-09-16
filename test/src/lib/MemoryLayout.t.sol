@@ -68,15 +68,15 @@ contract MemoryLayoutTest is Test {
     /// non-zero word, so a read at the wrong offset does not match the word
     /// expected for the member under test.
     address constant ADDR = address(0x1111111111111111111111111111111111111111);
-    uint32 constant U = 0x22222222;
-    int8 constant I = -3;
-    bytes4 constant B = 0x44444444;
+    uint32 constant FILL_UINT = 0x22222222;
+    int8 constant FILL_INT = -3;
+    bytes4 constant FILL_BYTES = 0x44444444;
 
     /// The word at byte `offset` of the struct's memory.
-    function word(SubWord memory s, uint256 offset) internal pure returns (uint256) {
+    function word(SubWord memory subWord, uint256 offset) internal pure returns (uint256) {
         uint256 ptr;
         assembly ("memory-safe") {
-            ptr := s
+            ptr := subWord
         }
         return LibMemorySnapshot.wordAt(ptr, offset);
     }
@@ -94,11 +94,11 @@ contract MemoryLayoutTest is Test {
     /// words.
     function testSubWordMembersOccupyFullWords() public pure {
         uint256 fmpBefore = LibMemorySnapshot.freeMemoryPointer();
-        SubWord memory s = SubWord(true, ADDR, U, Colour.Green, I, B);
+        SubWord memory subWord = SubWord(true, ADDR, FILL_UINT, Colour.Green, FILL_INT, FILL_BYTES);
         uint256 fmpAfter = LibMemorySnapshot.freeMemoryPointer();
         uint256 ptr;
         assembly ("memory-safe") {
-            ptr := s
+            ptr := subWord
         }
         assertEq(ptr, fmpBefore);
         assertEq(fmpAfter - ptr, 6 * 0x20);
@@ -106,63 +106,63 @@ contract MemoryLayoutTest is Test {
 
     /// `bool` is right-aligned and zero-padded: `true` is the word 1, `false`
     /// the word 0.
-    function testBoolIsZeroPadded(bool x) public pure {
-        SubWord memory s = SubWord(x, ADDR, U, Colour.Green, I, B);
-        assertEq(word(s, 0x00), uint256(x ? 1 : 0));
+    function testBoolIsZeroPadded(bool flag) public pure {
+        SubWord memory subWord = SubWord(flag, ADDR, FILL_UINT, Colour.Green, FILL_INT, FILL_BYTES);
+        assertEq(word(subWord, 0x00), uint256(flag ? 1 : 0));
     }
 
     /// `address` is right-aligned and zero-padded: the word is the `uint160`
     /// value.
-    function testAddressIsZeroPadded(address x) public pure {
-        SubWord memory s = SubWord(true, x, U, Colour.Green, I, B);
-        assertEq(word(s, 0x20), uint256(uint160(x)));
+    function testAddressIsZeroPadded(address addr) public pure {
+        SubWord memory subWord = SubWord(true, addr, FILL_UINT, Colour.Green, FILL_INT, FILL_BYTES);
+        assertEq(word(subWord, 0x20), uint256(uint160(addr)));
     }
 
     /// Unsigned integers are right-aligned and zero-padded: the word is the
     /// `uint256` value.
-    function testUnsignedIntIsZeroPadded(uint32 x) public pure {
-        SubWord memory s = SubWord(true, ADDR, x, Colour.Green, I, B);
-        assertEq(word(s, 0x40), uint256(x));
+    function testUnsignedIntIsZeroPadded(uint32 unsigned) public pure {
+        SubWord memory subWord = SubWord(true, ADDR, unsigned, Colour.Green, FILL_INT, FILL_BYTES);
+        assertEq(word(subWord, 0x40), uint256(unsigned));
     }
 
     /// Enums are right-aligned and zero-padded: the word is the value's
     /// `uint8`.
     function testEnumIsZeroPadded() public pure {
-        for (uint8 v = 0; v <= uint8(type(Colour).max); v++) {
-            Colour c = Colour(v);
-            SubWord memory s = SubWord(true, ADDR, U, c, I, B);
-            assertEq(word(s, 0x60), uint256(uint8(c)));
+        for (uint8 colourValue = 0; colourValue <= uint8(type(Colour).max); colourValue++) {
+            Colour colour = Colour(colourValue);
+            SubWord memory subWord = SubWord(true, ADDR, FILL_UINT, colour, FILL_INT, FILL_BYTES);
+            assertEq(word(subWord, 0x60), uint256(uint8(colour)));
         }
     }
 
     /// Signed integers are right-aligned and sign-extended: the word is
     /// `uint256(int256(x))`, not the zero-padded `uint256(uint8(x))`.
-    function testSignedIntIsSignExtended(int8 x) public pure {
-        SubWord memory s = SubWord(true, ADDR, U, Colour.Green, x, B);
+    function testSignedIntIsSignExtended(int8 signed) public pure {
+        SubWord memory subWord = SubWord(true, ADDR, FILL_UINT, Colour.Green, signed, FILL_BYTES);
         // forge-lint: disable-next-line(unsafe-typecast)
-        assertEq(word(s, 0x80), uint256(int256(x)));
+        assertEq(word(subWord, 0x80), uint256(int256(signed)));
     }
 
     /// The README's example: `int8(-1)` is `0xff…ff`, not `0x00…ff`.
     function testInt8MinusOneIsAllOnes() public pure {
-        SubWord memory s = SubWord(true, ADDR, U, Colour.Green, -1, B);
-        uint256 w = word(s, 0x80);
-        assertEq(w, type(uint256).max);
+        SubWord memory subWord = SubWord(true, ADDR, FILL_UINT, Colour.Green, -1, FILL_BYTES);
+        uint256 memoryWord = word(subWord, 0x80);
+        assertEq(memoryWord, type(uint256).max);
     }
 
     /// `bytesN` is left-aligned and zero-padded on the right: the word is
     /// `uint256(bytes32(x))`, not the right-aligned `uint256(uint32(x))`.
-    function testFixedBytesIsLeftAligned(bytes4 x) public pure {
-        SubWord memory s = SubWord(true, ADDR, U, Colour.Green, I, x);
-        assertEq(word(s, 0xa0), uint256(bytes32(x)));
+    function testFixedBytesIsLeftAligned(bytes4 fixedBytes) public pure {
+        SubWord memory subWord = SubWord(true, ADDR, FILL_UINT, Colour.Green, FILL_INT, fixedBytes);
+        assertEq(word(subWord, 0xa0), uint256(bytes32(fixedBytes)));
     }
 
     /// The README's example: `bytes4(0x01020304)` is `0x01020304` followed by
     /// 28 zero bytes, not `0x00…01020304`.
     function testBytes4ExampleIsLeftAligned() public pure {
-        SubWord memory s = SubWord(true, ADDR, U, Colour.Green, I, bytes4(0x01020304));
-        uint256 w = word(s, 0xa0);
-        assertEq(w, uint256(0x01020304) << 224);
+        SubWord memory subWord = SubWord(true, ADDR, FILL_UINT, Colour.Green, FILL_INT, bytes4(0x01020304));
+        uint256 memoryWord = word(subWord, 0xa0);
+        assertEq(memoryWord, uint256(0x01020304) << 224);
     }
 
     /// A `Foo` is a 4-word region: `uint256`, `address`, `uint256[]` and
@@ -173,11 +173,11 @@ contract MemoryLayoutTest is Test {
         // c and d are already allocated, so the struct is the only allocation
         // between fmpBefore and fmpAfter.
         uint256 fmpBefore = LibMemorySnapshot.freeMemoryPointer();
-        Foo memory f = Foo(1, address(2), c, d);
+        Foo memory foo = Foo(1, address(2), c, d);
         uint256 fmpAfter = LibMemorySnapshot.freeMemoryPointer();
         uint256 ptr;
         assembly ("memory-safe") {
-            ptr := f
+            ptr := foo
         }
         assertEq(ptr, fmpBefore);
         assertEq(fmpAfter - ptr, 0x80);
@@ -302,17 +302,17 @@ contract MemoryLayoutTest is Test {
     /// words of a `Foo` are the pointers Solidity holds for `c` and `d`, not
     /// their contents.
     function testDynamicMembersArePointerWords(uint256[] memory c, bytes memory d) public pure {
-        Foo memory f = Foo(1, ADDR, c, d);
-        uint256 fPtr;
+        Foo memory foo = Foo(1, ADDR, c, d);
+        uint256 fooPtr;
         uint256 cPtr;
         uint256 dPtr;
         assembly ("memory-safe") {
-            fPtr := f
+            fooPtr := foo
             cPtr := c
             dPtr := d
         }
-        assertEq(LibMemorySnapshot.wordAt(fPtr, 0x40), cPtr);
-        assertEq(LibMemorySnapshot.wordAt(fPtr, 0x60), dPtr);
+        assertEq(LibMemorySnapshot.wordAt(fooPtr, 0x40), cPtr);
+        assertEq(LibMemorySnapshot.wordAt(fooPtr, 0x60), dPtr);
     }
 
     /// Reference members that are exactly one word wide are still pointer
@@ -405,30 +405,30 @@ contract MemoryLayoutTest is Test {
     /// The same rounding for any length: `new bytes(n)` moves the free memory
     /// pointer by 0x20 plus `n` rounded up to a multiple of 0x20, and the
     /// length word is `n`.
-    function testBytesAllocationRoundsUpToWordsForAnyLength(uint16 n) public pure {
+    function testBytesAllocationRoundsUpToWordsForAnyLength(uint16 length) public pure {
         uint256 fmpBefore = LibMemorySnapshot.freeMemoryPointer();
-        bytes memory b = new bytes(n);
-        (uint256 fmpAfter, uint256 ptr, uint256 len) = bytesLayout(b);
+        bytes memory allocated = new bytes(length);
+        (uint256 fmpAfter, uint256 ptr, uint256 len) = bytesLayout(allocated);
         assertEq(ptr, fmpBefore);
-        assertEq(fmpAfter - ptr, LibMemorySnapshot.wordAlignedAllocation(n));
-        assertEq(len, n);
+        assertEq(fmpAfter - ptr, LibMemorySnapshot.wordAlignedAllocation(length));
+        assertEq(len, length);
     }
 
     /// `new string(n)` allocates exactly as `new bytes(n)` does: the same
     /// rounded-up free memory pointer movement and the same length word.
-    function testNewStringAllocatesLikeNewBytes(uint16 n) public pure {
+    function testNewStringAllocatesLikeNewBytes(uint16 length) public pure {
         uint256 fmp0 = LibMemorySnapshot.freeMemoryPointer();
-        bytes memory b = new bytes(n);
+        bytes memory allocatedBytes = new bytes(length);
         uint256 fmp1 = LibMemorySnapshot.freeMemoryPointer();
-        string memory s = new string(n);
-        (uint256 fmp2, uint256 sPtr, uint256 sLen) = bytesLayout(bytes(s));
-        (, uint256 bPtr, uint256 bLen) = bytesLayout(b);
-        assertEq(bPtr, fmp0);
-        assertEq(sPtr, fmp1);
-        assertEq(fmp1 - bPtr, LibMemorySnapshot.wordAlignedAllocation(n));
-        assertEq(fmp2 - sPtr, fmp1 - bPtr);
-        assertEq(bLen, n);
-        assertEq(sLen, n);
+        string memory allocatedString = new string(length);
+        (uint256 fmp2, uint256 stringPtr, uint256 stringLen) = bytesLayout(bytes(allocatedString));
+        (, uint256 bytesPtr, uint256 bytesLen) = bytesLayout(allocatedBytes);
+        assertEq(bytesPtr, fmp0);
+        assertEq(stringPtr, fmp1);
+        assertEq(fmp1 - bytesPtr, LibMemorySnapshot.wordAlignedAllocation(length));
+        assertEq(fmp2 - stringPtr, fmp1 - bytesPtr);
+        assertEq(bytesLen, length);
+        assertEq(stringLen, length);
     }
 
     /// `string` has the layout of `bytes` with the same content: the same
@@ -436,38 +436,38 @@ contract MemoryLayoutTest is Test {
     /// movement. Each copy is made by the builtin `concat` for its type.
     function testStringLayoutIsBytesLayout(bytes memory content) public pure {
         uint256 fmp0 = LibMemorySnapshot.freeMemoryPointer();
-        bytes memory b = bytes.concat(content);
+        bytes memory allocatedBytes = bytes.concat(content);
         uint256 fmp1 = LibMemorySnapshot.freeMemoryPointer();
-        string memory s = string.concat(string(content));
-        (uint256 fmp2, uint256 sPtr, uint256 sLen) = bytesLayout(bytes(s));
-        (, uint256 bPtr, uint256 bLen) = bytesLayout(b);
-        assertEq(bPtr, fmp0);
-        assertEq(sPtr, fmp1);
-        assertEq(bLen, content.length);
-        assertEq(sLen, content.length);
-        assertEq(fmp2 - sPtr, fmp1 - bPtr);
-        checkDataWordsAreContent(content, bPtr, sPtr);
+        string memory allocatedString = string.concat(string(content));
+        (uint256 fmp2, uint256 stringPtr, uint256 stringLen) = bytesLayout(bytes(allocatedString));
+        (, uint256 bytesPtr, uint256 bytesLen) = bytesLayout(allocatedBytes);
+        assertEq(bytesPtr, fmp0);
+        assertEq(stringPtr, fmp1);
+        assertEq(bytesLen, content.length);
+        assertEq(stringLen, content.length);
+        assertEq(fmp2 - stringPtr, fmp1 - bytesPtr);
+        checkDataWordsAreContent(content, bytesPtr, stringPtr);
     }
 
-    /// The words after the length prefix of the copies at `bPtr` and `sPtr`
-    /// are `content`'s words, the last one masked to the bytes within the
-    /// length. A separate frame so the caller's locals do not overflow the
-    /// stack.
-    function checkDataWordsAreContent(bytes memory content, uint256 bPtr, uint256 sPtr) internal pure {
+    /// The words after the length prefix of the copies at `bytesPtr` and
+    /// `stringPtr` are `content`'s words, the last one masked to the bytes
+    /// within the length. A separate frame so the caller's locals do not
+    /// overflow the stack.
+    function checkDataWordsAreContent(bytes memory content, uint256 bytesPtr, uint256 stringPtr) internal pure {
         (, uint256 contentPtr,) = bytesLayout(content);
         for (uint256 i = 0; i < content.length; i += 0x20) {
             uint256 contentWord = LibMemorySnapshot.wordAt(contentPtr, 0x20 + i);
-            uint256 bWord = LibMemorySnapshot.wordAt(bPtr, 0x20 + i);
-            uint256 sWord = LibMemorySnapshot.wordAt(sPtr, 0x20 + i);
+            uint256 bytesWord = LibMemorySnapshot.wordAt(bytesPtr, 0x20 + i);
+            uint256 stringWord = LibMemorySnapshot.wordAt(stringPtr, 0x20 + i);
             uint256 remaining = content.length - i;
             if (remaining < 0x20) {
                 uint256 mask = type(uint256).max << (8 * (0x20 - remaining));
                 contentWord &= mask;
-                bWord &= mask;
-                sWord &= mask;
+                bytesWord &= mask;
+                stringWord &= mask;
             }
-            assertEq(bWord, contentWord);
-            assertEq(sWord, bWord);
+            assertEq(bytesWord, contentWord);
+            assertEq(stringWord, bytesWord);
         }
     }
 }

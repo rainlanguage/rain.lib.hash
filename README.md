@@ -278,7 +278,7 @@ struct Foo {
 }
 ```
 
-If we had some `foo_` such that `Foo memory foo_ = Foo(...);` then `foo_` will
+If we had some `foo` such that `Foo memory foo = Foo(...);` then `foo` will
 be a pointer, either on the stack or in memory, depending on compiler
 optimisations.
 
@@ -320,7 +320,7 @@ Given the above, we can
 In all cases where the size of the data is a known number of words at compile
 time we are free to simply hash the known memory region.
 
-For example, a `foo_` as above is hashed by a single `keccak256` reading the
+For example, a `foo` as above is hashed by a single `keccak256` reading the
 struct's whole 4 words from the pointer. `testHashContiguousWords` in
 `test/src/lib/HashPattern.t.sol` is that assembly, checked against those 4 words
 read back independently.
@@ -411,10 +411,10 @@ To reliably handle pointers without allocations:
 Using our `Foo` struct from above as an example this would look like:
 
 - Hash the first two words as a contigious memory region of known size as `A`
-- Hash the dynamic word list `foo_.c` as `B`
+- Hash the dynamic word list `foo.c` as `B`
 - Write `A` and `B` to scratch space at `0` and `0x20` respectively
 - Hash the scratch space to produce `C`
-- Hash the bytes `foo_.d` as `D`
+- Hash the bytes `foo.d` as `D`
 - Write `C` and `D` to scratch space as above
 - Hash the scratch space to produce `E`, which is our final hash of `Foo`
 
@@ -424,12 +424,12 @@ is those steps as assembly, checked against A to E rebuilt with `abi.encode`.
 If we had a list of pointers, such as a `Foo[]` then this would be modelled as a
 simple fold/reduce-style accumulator, seeded with the nil hash (see below),
 where each item is hashed as above individually then hashed into the
-accumulator. I.e. Start from the nil hash N, hash `foos_[0]` to hash A, then
-write N and A to scratch and hash to produce B, then hash `foos_[1]` to hash C,
+accumulator. I.e. Start from the nil hash N, hash `foos[0]` to hash A, then
+write N and A to scratch and hash to produce B, then hash `foos[1]` to hash C,
 and hash B and C to produce D, etc.
 
 How much cheaper this process of iterating and accumulating a hash is than
-`keccak256(abi.encode(foos_))` depends almost entirely on how much data sits
+`keccak256(abi.encode(foos))` depends almost entirely on how much data sits
 behind each pointer. The fold pays a near-fixed cost per `keccak256` call (five
 per `Foo` above plus one to fold it into the accumulator) and only 6 gas per
 word hashed, whereas `abi.encode` copies every word of every element and writes

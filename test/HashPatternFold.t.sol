@@ -10,7 +10,10 @@ import {Foo, LibFooOracle} from "./lib/LibFooOracle.sol";
 /// describe: an accumulator seeded with the nil hash, into which each item's
 /// hash is combined by writing the pair to scratch space and hashing it. The
 /// oracle for every assertion is built from `keccak256`, `abi.encode` and
-/// `abi.encodePacked` only.
+/// `abi.encodePacked` only, its seed included, so the seed is checked against
+/// `HASH_NIL` rather than shared with it. The side under test is
+/// `LibHashNoAlloc.combineHashes` standing in for "write both to scratch and
+/// hash", or the hand-written Yul below for the whole fold.
 contract HashPatternFoldTest is Test {
     /// The README fold: start from the nil hash, then for each item write
     /// the accumulator and the item's hash to scratch and hash the pair.
@@ -91,6 +94,9 @@ contract HashPatternFoldTest is Test {
         assertNotEq(folded, hashX);
     }
 
+    /// The pattern side here shares no code with the oracle, so a wrong item
+    /// hash, dereference offset or scratch clobber between the item hash and
+    /// the accumulator write fails here.
     function testYulFoldMatchesBuiltins(Foo[4] memory pool) public pure {
         for (uint256 n = 0; n <= 4; n++) {
             Foo[] memory foos = take(pool, n);

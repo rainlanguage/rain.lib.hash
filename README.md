@@ -5,6 +5,12 @@
 the pattern this document describes for hashing any Solidity value in memory
 without allocating.
 
+The case against `keccak256(abi.encode(...))`, i.e. what `abi.encode` does and
+does not guarantee and what it costs, is stated once, in that file's title
+block, because that is the copy a consumer reads at the revision they pin. This
+document does not carry a second one; it specifies the pattern, its security,
+and how to test an inline implementation of it.
+
 ## Problem
 
 When producing hashes of just about anything that isn't already `bytes` the
@@ -147,36 +153,9 @@ The key takeaways are:
 
 #### Collisions with ABI encoding
 
-Perhaps unsurprisingly we can find one of these issues in `abi.encodePacked` as
-this encoding scheme simply concatenates bytes together.
-
-This means that `"abc" + "def"` and `"ab" + "cdef"` will pack to the same final
-bytestring, `"abcdef"`.
-
-We can suggest potential workarounds like "only use packed encoding for fixed
-length input data", but it's clear that packed encoding is situationally useful
-at best, and dangerous at worst.
-
-The suggested fix is usually to use `abi.encode`, which adds additional
-information to the raw data as part of the encoding. Something like
-`3"abc" + 3"def"` with length prefixes and `2"ab" + 4"cdef"`, and then
-additional head/tail structures that encode the offsets of the dynamic length
-data in an overall prefix to the encoded data.
-
-https://docs.soliditylang.org/en/stable/abi-spec.html#formal-specification-of-the-encoding
-
-Importantly, in light of the discussion in EIP712, the lengths are fixed length
-themselves, always represented as a `uint256`. The canonical encoding of one
-fixed type tuple is decodable, and that is the whole argument for it: as
-`abi.decode` recovers the value, two different values of that type cannot share
-an encoding.
-
-So `abi.encode` doesn't have the problems of `abi.encodePacked` nor early geth
-implementations. What it does not give is injectivity ACROSS types:
-`abi.encode(uint8(1))`, `abi.encode(uint256(1))`, `abi.encode(true)` and
-`abi.encode(address(1))` are all the same 32 bytes. That is the same "one hash
-domain, one type" restriction the pattern below carries, so the case for the
-pattern is cost, not a stronger guarantee.
+What `abi.encodePacked` collides on, what `abi.encode` fixes, and what its fix
+does and does not guarantee is the argument in the `LibHashNoAlloc` title block
+in `src/lib/LibHashNoAlloc.sol`. Read it there.
 
 #### Gas cost of encoding
 
@@ -188,22 +167,10 @@ Doing the same thing as everyone else, and as the security researchers recommend
 in audits, is usually a good idea.
 
 The issue here is that `abi.encode` is not particularly gas efficient. This is a
-fundamental issue and not at all the "fault" of Solidity. To encode anything
-with any algorithm and not cause the original data to be corrupted/unsafe to
-use, the EVM must allocate a new region of memory to house the encoded data. If
-we allow for dynamic length data types, the UNAVOIDABLE runtime overhead of ANY
-schemaless/uncompressed encoding algorithm is:
-
-- Calculate the size of memory to allocate for the encoded output by recursively
-  traversing the input data
-- Allocate the memory and pay nonlinear gas for expansion costs
-- Make a complete copy of the input data
-- Write additional data for the encoding itself, e.g. type/length prefixes,
-  headers, magic numbers, etc.
-
-The Solidity type system can definitely make a lot of this more efficient,
-especially the traversal bit, by generating the traversal process at compile
-time but it can't hand wave away the need for allocating and copying.
+fundamental issue and not at all the "fault" of Solidity. What an encoding has
+to do to the data, what that costs, and what `keccak256` does instead, hashing
+in place or through the scratch space Solidity reserves at `0x00-0x3f`, are in
+the `LibHashNoAlloc` title block and are not restated here.
 
 **Typically, if some algorithm `f(x)` is implemented in a functionally
 equivalent way, where one implementation internally encodes `x` and another
@@ -218,17 +185,6 @@ SSTORE2 implementation to
 [LibDataContract](https://github.com/rainlanguage/rain.datacontract/blob/252093fbf9edcbe1c0c73c33b16bdefaff53aef1/src/LibDataContract.sol)
 we still can see 1k+ gas savings per-write for common usage patterns, with
 identical outcomes.
-
-It really just seems to come down to the fact that memory expansion and bulk
-copying nested/dynamic is not a cheap thing to do. It's typically not millions
-of gas, but it can easily be 1-10k+ gas for what is often unnecessary work.
-
-Note however that `keccak256` itself is non destructive, it can happily produce
-a hash on the stack without modifying or allocating any memory at all. Even in
-the case that some data is NOT in memory yet and we want to hash it (e.g. on the
-stack), there is a dedicated region of memory from `0-0x40` called "scratch
-space for hashing methods". We can put any two words in the scratch space and
-hash them together without interacting with the allocator at all.
 
 What perhaps is the "fault" of Solidity is that they don't implement `keccak256`
 for any type other than `bytes` so we are forced to go all the way to Yul and
@@ -572,11 +528,6 @@ one type passes as an empty list of another. A contract that must accept more
 than one type in the same domain has to add its own domain separation, e.g. hash
 a per-type constant into the composition the way EIP712 hashes a type hash into
 every struct hash. The reference implementation adds none.
-
-Whatever this induction is worth as a formal proof, the same is available for
-`abi.encode`: decodability gives it injectivity per type, and neither argument
-reaches past one type. The pattern gets there without producing the encoding,
-which is where the saving is.
 
 #### Implementing and testing the pattern
 

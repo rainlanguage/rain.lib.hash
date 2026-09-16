@@ -17,13 +17,11 @@ struct TwoBytes {
 /// the same type. Any change that tags leaves, nodes or types breaks these
 /// tests and the README "Security of composition" section with them.
 contract LibHashNoAllocCrossTypeTest is Test {
-    /// A `bytes` leaf whose content is two hashes is the node built from those
-    /// hashes: `hashBytes(hash(c) then hash(d))` is `combineHashes(hash(c), hash(d))`.
-    function testLeafNodeCollision(bytes memory c, bytes memory d) public pure {
-        bytes32 hc = LibHashNoAlloc.hashBytes(c);
-        bytes32 hd = LibHashNoAlloc.hashBytes(d);
-        bytes memory leaf = abi.encodePacked(hc, hd);
-        bytes32 node = LibHashNoAlloc.combineHashes(hc, hd);
+    function testLeafNodeCollision(bytes memory left, bytes memory right) public pure {
+        bytes32 leftHash = LibHashNoAlloc.hashBytes(left);
+        bytes32 rightHash = LibHashNoAlloc.hashBytes(right);
+        bytes memory leaf = abi.encodePacked(leftHash, rightHash);
+        bytes32 node = LibHashNoAlloc.combineHashes(leftHash, rightHash);
         assertEq(LibHashNoAlloc.hashBytes(leaf), node);
         assertEq(node, LibHashSlow.hashBytesSlow(leaf));
     }

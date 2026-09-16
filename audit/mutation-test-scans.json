@@ -21,5 +21,28 @@
       "filed": ["#20", "#21", "#22", "#23", "#24", "#25", "#26", "#27"],
       "notes": "Library code: no miscomputation found; all four functions and HASH_NIL match cast keccak known answers. Survivors were the unasserted no-allocation / memory-safe promise (free memory pointer and zero slot). Filed issues are README/NatSpec/test-harness defects and one security-argument premise (#22, refs #7). testsAfterCommit is the merge commit of PR #19 on main."
     }
+  },
+  {
+    "timestamp": "2026-09-16T11:37:04Z",
+    "commit": "f2a9f5f613a82752761c4a17d70597ece17adb97",
+    "testsAfterCommit": null,
+    "publishedTag": "sol-v0.1.25",
+    "commitsAheadOfTag": 0,
+    "scope": "src/lib/LibHashNoAlloc.sol, against the five documented claims of #76",
+    "tool": "mutation-probe (adversarial-mutation-test 4e59ec0c)",
+    "skillVersion": "0.34.0",
+    "summary": {
+      "behaviours": 28,
+      "mutantsKilledByPreExistingSuite": 28,
+      "mutantsSurvivedPreExistingSuite": 0,
+      "mutantsKilledAfter": 28,
+      "candidates": 0,
+      "confirmed": 0,
+      "testsBefore": 77,
+      "testsAfter": 77,
+      "coveragePRs": [],
+      "filed": [],
+      "notes": "Mutation probe only, no adversarial pass. 28 mutants over every behaviour the library has: the read offset and byte count of hashBytes and of both hashWords overloads, the two scratch writes and the hashed range of combineHashes, the HASH_NIL literal, and the no-allocation promise of all four. All 28 die to the suite as it stands. The seven tests #76 proposes were written and probed against the same 28: between them they kill 23, none of which the suite misses, and they miss the four no-allocation mutants and HASH_NIL. No test added. main moved to 6afa299 after this scan by a README-only commit, so src/ and test/ are byte-identical to the scanned commit."
+    }
   }
 ]

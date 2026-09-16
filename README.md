@@ -137,8 +137,8 @@ EIP.
 
 The key takeaways are:
 
-- We need something determinstic and injective, which can probably be summarised
-  in a single word as "unambiguous"
+- We need something deterministic and injective, which can probably be
+  summarised in a single word as "unambiguous"
 - Hashing bytes is secure by default and any encoding scheme's security can only
   be less than or equal to the security of the hash of the raw data before it is
   encoded
@@ -221,7 +221,7 @@ identical outcomes.
 
 It really just seems to come down to the fact that memory expansion and bulk
 copying nested/dynamic is not a cheap thing to do. It's typically not millions
-of gas, but it can easily be 1-10k+ gas for what is often unneccessary work.
+of gas, but it can easily be 1-10k+ gas for what is often unnecessary work.
 
 Note however that `keccak256` itself is non destructive, it can happily produce
 a hash on the stack without modifying or allocating any memory at all. Even in
@@ -230,7 +230,7 @@ stack), there is a dedicated region of memory from `0-0x40` called "scratch
 space for hashing methods". We can put any two words in the scratch space and
 hash them together without interacting with the allocator at all.
 
-What perhaps is the "fault" of Solidity is that they don't implement `keecak256`
+What perhaps is the "fault" of Solidity is that they don't implement `keccak256`
 for any type other than `bytes` so we are forced to go all the way to Yul and
 write assembly the moment we want to do anything other than `abi.encode`.
 
@@ -310,11 +310,11 @@ long.
 Given the above, we can
 
 - Define a pattern for hashing each of the 3 possible memory layouts
-- Explain how to handle pointers across non-contigous regions of memory
+- Explain how to handle pointers across non-contiguous regions of memory
 - Discuss the security of the composition
 - Provide a guide for implementation, maintenance and quality assurance
 
-#### Hashing contigious words
+#### Hashing contiguous words
 
 In all cases where the size of the data is a known number of words at compile
 time we are free to simply hash the known memory region.
@@ -333,7 +333,7 @@ naturally.
 Other than implementation bugs, there's no potential for
 
 - Collisions
-- Including data what we did not intend to in the hash input
+- Including data that we did not intend to include in the hash input
 - Failing to include some part of the struct
 
 Because the size of the data never changes, we can just hardcode it per-type.
@@ -399,7 +399,7 @@ We find pointers in Solidity wherever a reference type (array, struct, `bytes`,
 Solidity does not allow mixed type lists so all pointers are at least found in
 predictable positions. We always know at compile time whether something is a
 pointer or not, either because it's a field at a known offset, or we are dealing
-with an individual or list or pointers directly.
+with an individual pointer or a list of pointers directly.
 
 To reliably handle pointers without allocations:
 
@@ -409,7 +409,7 @@ To reliably handle pointers without allocations:
 
 Using our `Foo` struct from above as an example this would look like:
 
-- Hash the first two words as a contigious memory region of known size as `A`
+- Hash the first two words as a contiguous memory region of known size as `A`
 - Hash the dynamic word list `foo.c` as `B`
 - Write `A` and `B` to scratch space at `0` and `0x20` respectively
 - Hash the scratch space to produce `C`

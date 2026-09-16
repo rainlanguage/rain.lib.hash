@@ -2,16 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
-
-/// The struct README.md "Memory layout" describes: a 4-word region, one word
-/// per member whatever the member's type.
-struct Foo {
-    uint256 a;
-    address b;
-    uint256[] c;
-    bytes d;
-}
+import {Test} from "forge-std-1.16.2/src/Test.sol";
+import {Foo} from "./lib/LibFooOracle.sol";
+import {LibMemorySnapshot} from "./lib/LibMemorySnapshot.sol";
 
 /// A struct whose second member is a struct: `inner` is one word of the
 /// `Outer`, the pointer to a `Foo`.
@@ -45,6 +38,27 @@ struct SubWord {
     bytes4 b;
 }
 
+/// A one-field struct: a reference type that is exactly one word wide.
+struct One {
+    uint256 v;
+}
+
+/// Three reference members that are each exactly one word wide. Each is one
+/// pointer word of the `OneWordRefs`, so it is 4 words like `Foo`.
+struct OneWordRefs {
+    uint256 x;
+    uint256[1] arr;
+    One one;
+    bytes32[1] barr;
+}
+
+/// A static array member wider than one word: one pointer word, not two
+/// inlined words.
+struct WithStaticArray {
+    uint256 x;
+    uint256[2] arr;
+}
+
 /// How Solidity lays out struct members, nested structs, dynamic members and
 /// `new` byte allocations in memory: each fact is read back
 /// from memory with `mload` and checked against the word Solidity's own type
@@ -59,25 +73,32 @@ contract MemoryLayoutTest is Test {
     bytes4 constant B = 0x44444444;
 
     /// The word at byte `offset` of the struct's memory.
-    function word(SubWord memory s, uint256 offset) internal pure returns (uint256 w) {
+    function word(SubWord memory s, uint256 offset) internal pure returns (uint256) {
+        uint256 ptr;
         assembly ("memory-safe") {
-            w := mload(add(s, offset))
+            ptr := s
         }
+        return LibMemorySnapshot.wordAt(ptr, offset);
+    }
+
+    /// The free memory pointer, the pointer to `b` and its length word.
+    function bytesLayout(bytes memory b) internal pure returns (uint256, uint256, uint256) {
+        uint256 ptr;
+        assembly ("memory-safe") {
+            ptr := b
+        }
+        return (LibMemorySnapshot.freeMemoryPointer(), ptr, LibMemorySnapshot.wordAt(ptr, 0));
     }
 
     /// Every sub-word member occupies a full word: six members allocate six
     /// words.
     function testSubWordMembersOccupyFullWords() public pure {
-        uint256 fmpBefore;
-        assembly ("memory-safe") {
-            fmpBefore := mload(0x40)
-        }
+        uint256 fmpBefore = LibMemorySnapshot.freeMemoryPointer();
         SubWord memory s = SubWord(true, ADDR, U, Colour.Green, I, B);
+        uint256 fmpAfter = LibMemorySnapshot.freeMemoryPointer();
         uint256 ptr;
-        uint256 fmpAfter;
         assembly ("memory-safe") {
             ptr := s
-            fmpAfter := mload(0x40)
         }
         assertEq(ptr, fmpBefore);
         assertEq(fmpAfter - ptr, 6 * 0x20);
@@ -118,6 +139,7 @@ contract MemoryLayoutTest is Test {
     /// `uint256(int256(x))`, not the zero-padded `uint256(uint8(x))`.
     function testSignedIntIsSignExtended(int8 x) public pure {
         SubWord memory s = SubWord(true, ADDR, U, Colour.Green, x, B);
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(word(s, 0x80), uint256(int256(x)));
     }
 
@@ -126,7 +148,6 @@ contract MemoryLayoutTest is Test {
         SubWord memory s = SubWord(true, ADDR, U, Colour.Green, -1, B);
         uint256 w = word(s, 0x80);
         assertEq(w, type(uint256).max);
-        assertTrue(w != uint256(uint8(int8(-1))));
     }
 
     /// `bytesN` is left-aligned and zero-padded on the right: the word is
@@ -142,7 +163,6 @@ contract MemoryLayoutTest is Test {
         SubWord memory s = SubWord(true, ADDR, U, Colour.Green, I, bytes4(0x01020304));
         uint256 w = word(s, 0xa0);
         assertEq(w, uint256(0x01020304) << 224);
-        assertTrue(w != uint256(uint32(0x01020304)));
     }
 
     /// A `Foo` is a 4-word region: `uint256`, `address`, `uint256[]` and
@@ -150,18 +170,14 @@ contract MemoryLayoutTest is Test {
     function testFooIsFourWords() public pure {
         uint256[] memory c = new uint256[](0);
         bytes memory d = "";
-        uint256 fmpBefore;
-        assembly ("memory-safe") {
-            fmpBefore := mload(0x40)
-        }
         // c and d are already allocated, so the struct is the only allocation
         // between fmpBefore and fmpAfter.
+        uint256 fmpBefore = LibMemorySnapshot.freeMemoryPointer();
         Foo memory f = Foo(1, address(2), c, d);
+        uint256 fmpAfter = LibMemorySnapshot.freeMemoryPointer();
         uint256 ptr;
-        uint256 fmpAfter;
         assembly ("memory-safe") {
             ptr := f
-            fmpAfter := mload(0x40)
         }
         assertEq(ptr, fmpBefore);
         assertEq(fmpAfter - ptr, 0x80);
@@ -170,34 +186,22 @@ contract MemoryLayoutTest is Test {
     /// `bytes1[]` is a list of words: a length prefix then one full word per
     /// element, each element left-aligned like any `bytesN`.
     function testBytes1ArrayIsWordList() public pure {
-        uint256 fmpBefore;
-        assembly ("memory-safe") {
-            fmpBefore := mload(0x40)
-        }
+        uint256 fmpBefore = LibMemorySnapshot.freeMemoryPointer();
         bytes1[] memory arr = new bytes1[](3);
         arr[0] = 0x01;
         arr[1] = 0x02;
         arr[2] = 0x03;
+        uint256 fmpAfter = LibMemorySnapshot.freeMemoryPointer();
         uint256 ptr;
-        uint256 fmpAfter;
-        uint256 len;
-        uint256 w0;
-        uint256 w1;
-        uint256 w2;
         assembly ("memory-safe") {
             ptr := arr
-            fmpAfter := mload(0x40)
-            len := mload(arr)
-            w0 := mload(add(arr, 0x20))
-            w1 := mload(add(arr, 0x40))
-            w2 := mload(add(arr, 0x60))
         }
         assertEq(ptr, fmpBefore);
-        assertEq(len, 3);
+        assertEq(LibMemorySnapshot.wordAt(ptr, 0), 3);
         assertEq(fmpAfter - ptr, 0x20 + 3 * 0x20);
-        assertEq(w0, uint256(bytes32(bytes1(0x01))));
-        assertEq(w1, uint256(bytes32(bytes1(0x02))));
-        assertEq(w2, uint256(bytes32(bytes1(0x03))));
+        assertEq(LibMemorySnapshot.wordAt(ptr, 0x20), uint256(bytes32(bytes1(0x01))));
+        assertEq(LibMemorySnapshot.wordAt(ptr, 0x40), uint256(bytes32(bytes1(0x02))));
+        assertEq(LibMemorySnapshot.wordAt(ptr, 0x60), uint256(bytes32(bytes1(0x03))));
     }
 
     /// A struct member of struct type is one pointer word: an `Outer` is 2
@@ -205,65 +209,93 @@ contract MemoryLayoutTest is Test {
     /// not the `Foo`'s 4 words inlined.
     function testNestedStructIsOnePointerWord(uint256 x) public pure {
         Foo memory inner = Foo(1, ADDR, new uint256[](0), "");
-        uint256 fmpBefore;
-        assembly ("memory-safe") {
-            fmpBefore := mload(0x40)
-        }
+        uint256 fmpBefore = LibMemorySnapshot.freeMemoryPointer();
         Outer memory outer = Outer(x, inner);
+        uint256 fmpAfter = LibMemorySnapshot.freeMemoryPointer();
         uint256 ptr;
-        uint256 fmpAfter;
         uint256 innerPtr;
-        uint256 w0;
-        uint256 w1;
         assembly ("memory-safe") {
             ptr := outer
-            fmpAfter := mload(0x40)
             innerPtr := inner
-            w0 := mload(outer)
-            w1 := mload(add(outer, 0x20))
         }
         assertEq(ptr, fmpBefore);
         assertEq(fmpAfter - ptr, 0x40);
-        assertEq(w0, x);
-        assertEq(w1, innerPtr);
+        assertEq(LibMemorySnapshot.wordAt(ptr, 0), x);
+        assertEq(LibMemorySnapshot.wordAt(ptr, 0x20), innerPtr);
     }
 
-    /// Nesting depth does not change the rule: an `Outermost` holding an
-    /// `Outer` holding a `Foo` is 2 words at each level, and the pointer word
-    /// at each level is the pointer to the next struct down.
     function testDeeplyNestedStructIsOnePointerWordPerLevel(uint256 x, uint256 y) public pure {
         Foo memory inner = Foo(1, ADDR, new uint256[](0), "");
-        uint256 fmp0;
-        assembly ("memory-safe") {
-            fmp0 := mload(0x40)
-        }
+        uint256 fmp0 = LibMemorySnapshot.freeMemoryPointer();
         Outer memory mid = Outer(x, inner);
-        uint256 fmp1;
-        assembly ("memory-safe") {
-            fmp1 := mload(0x40)
-        }
+        uint256 fmp1 = LibMemorySnapshot.freeMemoryPointer();
         Outermost memory outermost = Outermost(y, mid);
-        uint256 fmp2;
+        uint256 fmp2 = LibMemorySnapshot.freeMemoryPointer();
         uint256 outermostPtr;
         uint256 midPtr;
         uint256 innerPtr;
-        uint256 w1;
-        uint256 midW1;
         assembly ("memory-safe") {
-            fmp2 := mload(0x40)
             outermostPtr := outermost
             midPtr := mid
             innerPtr := inner
-            w1 := mload(add(outermost, 0x20))
-            // Follow the pointer word to the `Outer` and read its pointer word.
-            midW1 := mload(add(w1, 0x20))
         }
+        uint256 w1 = LibMemorySnapshot.wordAt(outermostPtr, 0x20);
+        // Follow the pointer word to the `Outer` and read its pointer word.
+        uint256 midW1 = LibMemorySnapshot.wordAt(w1, 0x20);
         assertEq(midPtr, fmp0);
         assertEq(fmp1 - midPtr, 0x40);
         assertEq(outermostPtr, fmp1);
         assertEq(fmp2 - outermostPtr, 0x40);
         assertEq(w1, midPtr);
         assertEq(midW1, innerPtr);
+
+        // Reusing dead locals; two more would be stack-too-deep.
+        assembly ("memory-safe") {
+            w1 := mload(outermost)
+            midW1 := mload(midPtr)
+        }
+        assertEq(w1, y);
+        assertEq(midW1, x);
+    }
+
+    function testNewFooArrayAllocatesListThenElements(uint8 length) public pure {
+        uint256 n = length;
+        uint256 fmpBefore;
+        assembly ("memory-safe") {
+            fmpBefore := mload(0x40)
+        }
+        Foo[] memory foos = new Foo[](n);
+        uint256 ptr;
+        uint256 fmpAfter;
+        assembly ("memory-safe") {
+            ptr := foos
+            fmpAfter := mload(0x40)
+        }
+        assertEq(ptr, fmpBefore);
+        assertEq(fmpAfter - ptr, 0x20 + n * 0x20 + n * 0x80);
+
+        for (uint256 i = 0; i < n; i++) {
+            Foo memory foo = foos[i];
+            uint256 fooPointer;
+            uint256 w0;
+            uint256 w1;
+            uint256 w2;
+            uint256 w3;
+            assembly ("memory-safe") {
+                fooPointer := foo
+                w0 := mload(foo)
+                w1 := mload(add(foo, 0x20))
+                w2 := mload(add(foo, 0x40))
+                w3 := mload(add(foo, 0x60))
+            }
+            assertEq(fooPointer, ptr + 0x20 + n * 0x20 + i * 0x80);
+            assertEq(w0, 0);
+            assertEq(w1, 0);
+            assertEq(w2, 0x60);
+            assertEq(w3, 0x60);
+            assertEq(foo.c.length, 0);
+            assertEq(foo.d.length, 0);
+        }
     }
 
     /// `uint256[]` and `bytes` members are pointer words: the third and fourth
@@ -271,18 +303,85 @@ contract MemoryLayoutTest is Test {
     /// their contents.
     function testDynamicMembersArePointerWords(uint256[] memory c, bytes memory d) public pure {
         Foo memory f = Foo(1, ADDR, c, d);
+        uint256 fPtr;
         uint256 cPtr;
         uint256 dPtr;
-        uint256 w2;
-        uint256 w3;
         assembly ("memory-safe") {
+            fPtr := f
             cPtr := c
             dPtr := d
-            w2 := mload(add(f, 0x40))
-            w3 := mload(add(f, 0x60))
         }
-        assertEq(w2, cPtr);
-        assertEq(w3, dPtr);
+        assertEq(LibMemorySnapshot.wordAt(fPtr, 0x40), cPtr);
+        assertEq(LibMemorySnapshot.wordAt(fPtr, 0x60), dPtr);
+    }
+
+    /// Reference members that are exactly one word wide are still pointer
+    /// words: an `OneWordRefs` is 4 words, and words 1 to 3 are the pointers
+    /// Solidity holds for the `uint256[1]`, the one-field `One` and the
+    /// `bytes32[1]`, not the single values 7, 8 and 9 they hold.
+    function testOneWordReferenceMembersArePointerWords(uint256 x) public pure {
+        uint256[1] memory arr = [uint256(7)];
+        One memory one = One(8);
+        bytes32[1] memory barr = [bytes32(uint256(9))];
+        // Scratch for the words read back, allocated before the struct so the
+        // struct is the only allocation between the two free memory pointer
+        // reads.
+        uint256[4] memory w;
+        uint256[3] memory p;
+        uint256 fmpBefore;
+        assembly ("memory-safe") {
+            fmpBefore := mload(0x40)
+        }
+        OneWordRefs memory s = OneWordRefs(x, arr, one, barr);
+        uint256 ptr;
+        uint256 size;
+        assembly ("memory-safe") {
+            ptr := s
+            size := sub(mload(0x40), s)
+            mstore(p, arr)
+            mstore(add(p, 0x20), one)
+            mstore(add(p, 0x40), barr)
+            mstore(w, mload(s))
+            mstore(add(w, 0x20), mload(add(s, 0x20)))
+            mstore(add(w, 0x40), mload(add(s, 0x40)))
+            mstore(add(w, 0x60), mload(add(s, 0x60)))
+        }
+        assertEq(ptr, fmpBefore);
+        assertEq(size, 0x80);
+        assertEq(w[0], x);
+        assertEq(w[1], p[0]);
+        assertEq(w[2], p[1]);
+        assertEq(w[3], p[2]);
+        assertNotEq(w[1], 7);
+        assertNotEq(w[2], 8);
+        assertNotEq(w[3], 9);
+    }
+
+    /// A static array member is one pointer word whatever its length: a
+    /// `WithStaticArray` is 2 words and its second word is the pointer
+    /// Solidity holds for the `uint256[2]`, not the array's 2 words inlined.
+    function testStaticArrayMemberIsPointerWord(uint256 x, uint256[2] memory arr) public pure {
+        uint256 fmpBefore;
+        assembly ("memory-safe") {
+            fmpBefore := mload(0x40)
+        }
+        WithStaticArray memory s = WithStaticArray(x, arr);
+        uint256 ptr;
+        uint256 size;
+        uint256 arrPtr;
+        uint256 w0;
+        uint256 w1;
+        assembly ("memory-safe") {
+            ptr := s
+            size := sub(mload(0x40), s)
+            arrPtr := arr
+            w0 := mload(s)
+            w1 := mload(add(s, 0x20))
+        }
+        assertEq(ptr, fmpBefore);
+        assertEq(size, 0x40);
+        assertEq(w0, x);
+        assertEq(w1, arrPtr);
     }
 
     /// `new bytes(n)` allocates whole words: `new bytes(1)` moves
@@ -290,28 +389,11 @@ contract MemoryLayoutTest is Test {
     /// word plus the length rounded up to a multiple of 0x20), while the
     /// length word stays 1 and 33.
     function testBytesAllocationRoundsUpToWords() public pure {
-        uint256 fmp0;
-        assembly ("memory-safe") {
-            fmp0 := mload(0x40)
-        }
+        uint256 fmp0 = LibMemorySnapshot.freeMemoryPointer();
         bytes memory one = new bytes(1);
-        uint256 fmp1;
-        uint256 onePtr;
-        uint256 oneLen;
-        assembly ("memory-safe") {
-            fmp1 := mload(0x40)
-            onePtr := one
-            oneLen := mload(one)
-        }
+        (uint256 fmp1, uint256 onePtr, uint256 oneLen) = bytesLayout(one);
         bytes memory thirtyThree = new bytes(33);
-        uint256 fmp2;
-        uint256 thirtyThreePtr;
-        uint256 thirtyThreeLen;
-        assembly ("memory-safe") {
-            fmp2 := mload(0x40)
-            thirtyThreePtr := thirtyThree
-            thirtyThreeLen := mload(thirtyThree)
-        }
+        (uint256 fmp2, uint256 thirtyThreePtr, uint256 thirtyThreeLen) = bytesLayout(thirtyThree);
         assertEq(onePtr, fmp0);
         assertEq(fmp1 - onePtr, 0x40);
         assertEq(oneLen, 1);
@@ -324,52 +406,26 @@ contract MemoryLayoutTest is Test {
     /// pointer by 0x20 plus `n` rounded up to a multiple of 0x20, and the
     /// length word is `n`.
     function testBytesAllocationRoundsUpToWordsForAnyLength(uint16 n) public pure {
-        uint256 fmpBefore;
-        assembly ("memory-safe") {
-            fmpBefore := mload(0x40)
-        }
+        uint256 fmpBefore = LibMemorySnapshot.freeMemoryPointer();
         bytes memory b = new bytes(n);
-        uint256 fmpAfter;
-        uint256 ptr;
-        uint256 len;
-        assembly ("memory-safe") {
-            fmpAfter := mload(0x40)
-            ptr := b
-            len := mload(b)
-        }
+        (uint256 fmpAfter, uint256 ptr, uint256 len) = bytesLayout(b);
         assertEq(ptr, fmpBefore);
-        assertEq(fmpAfter - ptr, 0x20 + ((uint256(n) + 0x1f) / 0x20) * 0x20);
+        assertEq(fmpAfter - ptr, LibMemorySnapshot.wordAlignedAllocation(n));
         assertEq(len, n);
     }
 
     /// `new string(n)` allocates exactly as `new bytes(n)` does: the same
     /// rounded-up free memory pointer movement and the same length word.
     function testNewStringAllocatesLikeNewBytes(uint16 n) public pure {
-        uint256 fmp0;
-        assembly ("memory-safe") {
-            fmp0 := mload(0x40)
-        }
+        uint256 fmp0 = LibMemorySnapshot.freeMemoryPointer();
         bytes memory b = new bytes(n);
-        uint256 fmp1;
-        assembly ("memory-safe") {
-            fmp1 := mload(0x40)
-        }
+        uint256 fmp1 = LibMemorySnapshot.freeMemoryPointer();
         string memory s = new string(n);
-        uint256 fmp2;
-        uint256 bPtr;
-        uint256 sPtr;
-        uint256 bLen;
-        uint256 sLen;
-        assembly ("memory-safe") {
-            fmp2 := mload(0x40)
-            bPtr := b
-            sPtr := s
-            bLen := mload(b)
-            sLen := mload(s)
-        }
+        (uint256 fmp2, uint256 sPtr, uint256 sLen) = bytesLayout(bytes(s));
+        (, uint256 bPtr, uint256 bLen) = bytesLayout(b);
         assertEq(bPtr, fmp0);
         assertEq(sPtr, fmp1);
-        assertEq(fmp1 - bPtr, 0x20 + ((uint256(n) + 0x1f) / 0x20) * 0x20);
+        assertEq(fmp1 - bPtr, LibMemorySnapshot.wordAlignedAllocation(n));
         assertEq(fmp2 - sPtr, fmp1 - bPtr);
         assertEq(bLen, n);
         assertEq(sLen, n);
@@ -379,44 +435,30 @@ contract MemoryLayoutTest is Test {
     /// length word, the same bytes after it, and the same free memory pointer
     /// movement. Each copy is made by the builtin `concat` for its type.
     function testStringLayoutIsBytesLayout(bytes memory content) public pure {
-        uint256 fmp0;
-        assembly ("memory-safe") {
-            fmp0 := mload(0x40)
-        }
+        uint256 fmp0 = LibMemorySnapshot.freeMemoryPointer();
         bytes memory b = bytes.concat(content);
-        uint256 fmp1;
-        assembly ("memory-safe") {
-            fmp1 := mload(0x40)
-        }
+        uint256 fmp1 = LibMemorySnapshot.freeMemoryPointer();
         string memory s = string.concat(string(content));
-        uint256 fmp2;
-        uint256 bPtr;
-        uint256 sPtr;
-        uint256 bLen;
-        uint256 sLen;
-        assembly ("memory-safe") {
-            fmp2 := mload(0x40)
-            bPtr := b
-            sPtr := s
-            bLen := mload(b)
-            sLen := mload(s)
-        }
+        (uint256 fmp2, uint256 sPtr, uint256 sLen) = bytesLayout(bytes(s));
+        (, uint256 bPtr, uint256 bLen) = bytesLayout(b);
         assertEq(bPtr, fmp0);
         assertEq(sPtr, fmp1);
         assertEq(bLen, content.length);
         assertEq(sLen, content.length);
         assertEq(fmp2 - sPtr, fmp1 - bPtr);
-        // The words after the length prefix, the last one masked to the bytes
-        // within the length.
+        checkDataWordsAreContent(content, bPtr, sPtr);
+    }
+
+    /// The words after the length prefix of the copies at `bPtr` and `sPtr`
+    /// are `content`'s words, the last one masked to the bytes within the
+    /// length. A separate frame so the caller's locals do not overflow the
+    /// stack.
+    function checkDataWordsAreContent(bytes memory content, uint256 bPtr, uint256 sPtr) internal pure {
+        (, uint256 contentPtr,) = bytesLayout(content);
         for (uint256 i = 0; i < content.length; i += 0x20) {
-            uint256 contentWord;
-            uint256 bWord;
-            uint256 sWord;
-            assembly ("memory-safe") {
-                contentWord := mload(add(add(content, 0x20), i))
-                bWord := mload(add(add(b, 0x20), i))
-                sWord := mload(add(add(s, 0x20), i))
-            }
+            uint256 contentWord = LibMemorySnapshot.wordAt(contentPtr, 0x20 + i);
+            uint256 bWord = LibMemorySnapshot.wordAt(bPtr, 0x20 + i);
+            uint256 sWord = LibMemorySnapshot.wordAt(sPtr, 0x20 + i);
             uint256 remaining = content.length - i;
             if (remaining < 0x20) {
                 uint256 mask = type(uint256).max << (8 * (0x20 - remaining));

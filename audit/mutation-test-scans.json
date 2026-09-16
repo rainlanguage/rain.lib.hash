@@ -25,11 +25,10 @@
   {
     "timestamp": "2026-09-16T11:37:04Z",
     "commit": "f2a9f5f613a82752761c4a17d70597ece17adb97",
-    "testsAfterCommit": null,
     "publishedTag": "sol-v0.1.25",
     "commitsAheadOfTag": 0,
     "scope": "src/lib/LibHashNoAlloc.sol, against the five documented claims of #76",
-    "tool": "mutation-probe (adversarial-mutation-test 4e59ec0c)",
+    "tool": "adversarial-mutation-test",
     "skillVersion": "0.34.0",
     "summary": {
       "behaviours": 28,
@@ -42,7 +41,7 @@
       "testsAfter": 77,
       "coveragePRs": [],
       "filed": [],
-      "notes": "Mutation probe only, no adversarial pass. 28 mutants over every behaviour the library has: the read offset and byte count of hashBytes and of both hashWords overloads, the two scratch writes and the hashed range of combineHashes, the HASH_NIL literal, and the no-allocation promise of all four. All 28 die to the suite as it stands. The seven tests #76 proposes were written and probed against the same 28: between them they kill 23, none of which the suite misses, and they miss the four no-allocation mutants and HASH_NIL. No test added. main has since moved to 092293e by a README-only commit and a NatSpec-only commit: test/ is byte-identical to the scanned commit and src/ differs from it only in /// lines, so every mutated line is unchanged."
+      "notes": "Mutation probe only (mutation-probe 4e59ec0c), no adversarial pass, and no test changed so there is no testsAfterCommit tree to name. 28 mutants over every behaviour the library has: the read offset and byte count of hashBytes and of both hashWords overloads, the two scratch writes and the hashed range of combineHashes, the HASH_NIL literal, and the no-allocation promise of all four. All 28 die to the suite as it stands. The seven tests #76 proposes were written and probed against the same 28: between them they kill 23, none of which the suite misses, and they miss the four no-allocation mutants and HASH_NIL. No test added. main has since moved to 092293e by a README-only commit and a NatSpec-only commit: test/ is byte-identical to the scanned commit and src/ differs from it only in /// lines, so every mutated line is unchanged."
     }
   }
 ]

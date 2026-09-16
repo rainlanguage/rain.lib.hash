@@ -1,6 +1,6 @@
 # rain.lib.hash
 
-`LibHashNoAlloc` in `src/LibHashNoAlloc.sol`, published to
+`LibHashNoAlloc` in `src/lib/LibHashNoAlloc.sol`, published to
 [soldeer](https://soldeer.xyz) as `rain-lib-hash`, implements the primitives of
 the pattern this document describes for hashing any Solidity value in memory
 without allocating.
@@ -244,8 +244,8 @@ write assembly the moment we want to do anything other than `abi.encode`.
   `hashWords` and `combineHashes` plus the `HASH_NIL` seed, that inline
   implementations can be fuzzed against; composition, i.e. the per-struct steps
   and the fold, is written inline per type from those primitives, and is worked
-  as fuzz tests in `test/HashPattern.t.sol` and `test/HashPatternFold.t.sol`
-  rather than exported
+  as fuzz tests in `test/src/lib/HashPattern.t.sol` and
+  `test/src/lib/HashPatternFold.t.sol` rather than exported
 
 ### The pattern
 
@@ -278,9 +278,8 @@ struct Foo {
 }
 ```
 
-If we had some `foo` such that `Foo memory foo = Foo(...);` then `foo` will
-be a pointer, either on the stack or in memory, depending on compiler
-optimisations.
+If we had some `foo` such that `Foo memory foo = Foo(...);` then `foo` will be a
+pointer, either on the stack or in memory, depending on compiler optimisations.
 
 The thing it points to falls into the first bucket, a 4-word region of memory
 defined by its type. This may not be intuitive but all of `uint256`, `address`,
@@ -322,8 +321,8 @@ time we are free to simply hash the known memory region.
 
 For example, a `foo` as above is hashed by a single `keccak256` reading the
 struct's whole 4 words from the pointer. `testHashContiguousWords` in
-`test/HashPattern.t.sol` is that assembly, checked against those 4 words read
-back independently.
+`test/src/lib/HashPattern.t.sol` is that assembly, checked against those 4 words
+read back independently.
 
 Ignore for now that `c` and `d` are pointers, as that will be discussed later in
 this document.
@@ -350,7 +349,7 @@ Again, ignoring pointers for now, we can hash any dynamic length word list with
 a single `keccak256` that starts one word past the pointer, skipping the length
 prefix, and runs for the length prefix multiplied by a word, converting that
 count of words into a count of bytes. `testHashWordList` in
-`test/HashPattern.t.sol` is that assembly.
+`test/src/lib/HashPattern.t.sol` is that assembly.
 
 Note that here we DO NOT include the length prefix in the bytes that we hash.
 
@@ -380,8 +379,8 @@ The assembly for this is actually simpler than dealing with words as we do not
 need to convert between length/bytes: skip the length prefix as above, then take
 the length prefix as the count of bytes it already is. It is the same for
 `string` and `bytes`. `testHashBytesExampleIsKeccakOfBytes` and
-`testHashStringExampleIsKeccakOfBytes` in `test/HashPattern.t.sol` are that
-assembly over each type, and `testBytesTrueLength` is the `hex"01"` /
+`testHashStringExampleIsKeccakOfBytes` in `test/src/lib/HashPattern.t.sol` are
+that assembly over each type, and `testBytesTrueLength` is the `hex"01"` /
 `hex"0100"` pair above.
 
 Note that pointers never appear in `bytes` nor `string`, or if they do, they are
@@ -418,8 +417,8 @@ Using our `Foo` struct from above as an example this would look like:
 - Write `C` and `D` to scratch space as above
 - Hash the scratch space to produce `E`, which is our final hash of `Foo`
 
-`testStructWithPointersHashesAsNestedNodes` in `test/HashPattern.t.sol` is those
-steps as assembly, checked against A to E rebuilt with `abi.encode`.
+`testStructWithPointersHashesAsNestedNodes` in `test/src/lib/HashPattern.t.sol`
+is those steps as assembly, checked against A to E rebuilt with `abi.encode`.
 
 If we had a list of pointers, such as a `Foo[]` then this would be modelled as a
 simple fold/reduce-style accumulator, seeded with the nil hash (see below),
@@ -452,7 +451,7 @@ The seed is also what separates a one-item array from its item: `[x]` hashes to
 
 #### Reference implementation
 
-`LibHashNoAlloc` in `src/LibHashNoAlloc.sol` carries the primitives of the
+`LibHashNoAlloc` in `src/lib/LibHashNoAlloc.sol` carries the primitives of the
 pattern and nothing above them: the three leaf hashers, the binary node, and the
 seed that a fold starts from.
 
@@ -489,7 +488,7 @@ and import the library and the seed together:
 
 ```solidity
 import {LibHashNoAlloc, HASH_NIL} from
-    "rain-lib-hash-<version>/src/LibHashNoAlloc.sol";
+    "rain-lib-hash-<version>/src/lib/LibHashNoAlloc.sol";
 ```
 
 #### Security of composition
@@ -599,11 +598,12 @@ neither can pass by repeating the same mistake:
   literal across a construction of the type. A field added to the definition
   moves the pointer further than the literal.
 
-`test/HashPattern.t.sol` and `test/HashPatternFold.t.sol` are the hash tests for
-the `Foo` used throughout this document, over the struct and over a list of
-them, and `test/MemoryLayout.t.sol` is the allocation test for its `0x80`. Copy
-their shape per type rather than reusing them: they are written against `Foo`,
-and the point of the check is that it is derived from the type it covers.
+`test/src/lib/HashPattern.t.sol` and `test/src/lib/HashPatternFold.t.sol` are
+the hash tests for the `Foo` used throughout this document, over the struct and
+over a list of them, and `test/src/lib/MemoryLayout.t.sol` is the allocation
+test for its `0x80`. Copy their shape per type rather than reusing them: they
+are written against `Foo`, and the point of the check is that it is derived from
+the type it covers.
 
 ## Dev stuff
 

@@ -3,8 +3,8 @@
 pragma solidity ^0.8.25;
 
 import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {LibHashNoAlloc, HASH_NIL} from "../src/LibHashNoAlloc.sol";
-import {LibHashSlow, HASH_WORDS_ONE_TWO} from "./LibHashSlow.sol";
+import {LibHashNoAlloc, HASH_NIL} from "../../../src/lib/LibHashNoAlloc.sol";
+import {LibHashSlow, HASH_WORDS_ONE_TWO} from "../../lib/LibHashSlow.sol";
 
 struct TwoBytes {
     bytes d1;

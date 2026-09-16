@@ -278,9 +278,8 @@ struct Foo {
 }
 ```
 
-If we had some `foo` such that `Foo memory foo = Foo(...);` then `foo` will
-be a pointer, either on the stack or in memory, depending on compiler
-optimisations.
+If we had some `foo` such that `Foo memory foo = Foo(...);` then `foo` will be a
+pointer, either on the stack or in memory, depending on compiler optimisations.
 
 The thing it points to falls into the first bucket, a 4-word region of memory
 defined by its type. This may not be intuitive but all of `uint256`, `address`,

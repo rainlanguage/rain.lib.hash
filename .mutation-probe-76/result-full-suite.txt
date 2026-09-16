@@ -1,0 +1,34 @@
+baseline: running suite ...
+baseline: green (77 passed)
+HB01 hashBytes hashes the length prefix instead of skipping it: KILLED — killed by: testBytesWordsCollision, testLeafNodeCollision, testPointerOnlyStructEqualsFoldOfList, testPointerOnlyStructEqualsFoldOfListAnyLength, testStaticDynamicNodeCollision
+HB02 hashBytes skips a second word past the length prefix: KILLED — killed by: testBytesWordsCollision, testLeafNodeCollision, testPointerOnlyStructEqualsFoldOfList, testPointerOnlyStructEqualsFoldOfListAnyLength, testStaticDynamicNodeCollision
+HB03 hashBytes rounds the length up to whole words: KILLED — killed by: testPointerOnlyStructEqualsFoldOfList, testPointerOnlyStructEqualsFoldOfListAnyLength, testHashBytes, testHashBytesCostsTheSameAsBuiltin, testHashBytesCostsTheSameAsBuiltinLong
+HB04 hashBytes rounds the length down to whole words: KILLED — killed by: testPointerOnlyStructEqualsFoldOfList, testPointerOnlyStructEqualsFoldOfListAnyLength, testHashBytes, testHashBytesCostsTheSameAsBuiltin, testHashBytesCostsTheSameAsBuiltinLong
+HB05 hashBytes hashes a fixed single word: KILLED — killed by: testHashBytes, testHashBytesCostsTheSameAsBuiltin, testHashBytesCostsTheSameAsBuiltinLong, testHashBytesNoAlloc, testBytesWordsCollision
+HB06 hashBytes counts the length prefix in the byte count: KILLED — killed by: testBytesWordsCollision, testEmptyCollision, testLeafNodeCollision, testPointerOnlyStructEqualsFoldOfList, testPointerOnlyStructEqualsFoldOfListAnyLength
+HB07 hashBytes hashes one byte too many: KILLED — killed by: testBytesWordsCollision, testEmptyCollision, testLeafNodeCollision, testPointerOnlyStructEqualsFoldOfList, testPointerOnlyStructEqualsFoldOfListAnyLength
+HB08 hashBytes hashes one byte too few: KILLED — killed by: testBytesWordsCollision, testEmptyCollision, testLeafNodeCollision, testPointerOnlyStructEqualsFoldOfList, testPointerOnlyStructEqualsFoldOfListAnyLength
+HB09 hashBytes always hashes no bytes: KILLED — killed by: testBytesWordsCollision, testLeafNodeCollision, testPointerOnlyStructEqualsFoldOfList, testPointerOnlyStructEqualsFoldOfListAnyLength, testStaticDynamicNodeCollision
+HB10 hashBytes copies to a fresh allocation before hashing: KILLED — killed by: testHashBytesTouchesNoMemory, testHashBytesCostsTheSameAsBuiltin, testHashBytesCostsTheSameAsBuiltinLong, testHashBytesNoAlloc, testHashBytesTouchesNoMemory
+HW01 bytes32 hashWords hashes the length prefix instead of skipping it: KILLED — killed by: testHashWordsTouchesNoMemory, testBytesWordsCollision, testStaticDynamicNodeCollision, testWordsOneTwoKnownAnswer, testHashWords
+HW02 bytes32 hashWords reads the word count as a byte count: KILLED — killed by: testHashWords, testHashWordsGas, testHashWordsGasOneWord, testHashWordsGasPerWord, testHashWordsGasTwoWords
+HW03 bytes32 hashWords hashes two bytes per word: KILLED — killed by: testHashWordsTouchesNoMemory, testHashWords, testHashWordsGas, testHashWordsGasOneWord, testHashWordsGasPerWord
+HW04 bytes32 hashWords always hashes exactly one word: KILLED — killed by: testHashWords, testHashWordsGas, testHashWordsGasEmpty, testHashWordsGasPerWord, testHashWordsGasTwoWords
+HW05 bytes32 hashWords drops the last word: KILLED — killed by: testHashWordsTouchesNoMemory, testBytesWordsCollision, testEmptyCollision, testStaticDynamicNodeCollision, testWordsOneTwoKnownAnswer
+HW06 bytes32 hashWords hashes one word past the end: KILLED — killed by: testHashWordsTouchesNoMemory, testHashWords, testHashWordsGas, testHashWordsGasEmpty, testHashWordsGasOneWord
+HW07 bytes32 hashWords copies to a fresh allocation before hashing: KILLED — killed by: testHashWordsGasPerWord, testHashWordsNoAlloc, testHashWordsTouchesNoMemory, testHashWordsTouchesNoMemory, testHashWordsGasPerWord
+HU01 uint256 hashWords hashes the length prefix instead of skipping it: KILLED — killed by: testHashWordsUint256TouchesNoMemory, testHashWordsUint256, testHashWordsUint256Gas, testHashWordsUint256NoAlloc, testBytesWordsCollision
+HU02 uint256 hashWords reads the word count as a byte count: KILLED — killed by: testBytesWordsCollision, testWordsOneTwoKnownAnswer, testHashWordsUint256, testHashWordsUint256Gas, testHashWordsUint256NoAlloc
+HU03 uint256 hashWords always hashes exactly one word: KILLED — killed by: testHashWordsUint256TouchesNoMemory, testBytesWordsCollision, testEmptyCollision, testWordsOneTwoKnownAnswer, testHashWordsUint256
+HU04 uint256 hashWords copies to a fresh allocation before hashing: KILLED — killed by: testHashWordsUint256TouchesNoMemory, testHashWordsUint256NoAlloc, testHashWordsUint256TouchesNoMemory, testHashWordsUint256NoAlloc
+CH01 combineHashes writes the operands in the other order: KILLED — killed by: testCombineHashesTouchesOnlyScratch, testLeafNodeCollision, testPointerOnlyStructEqualsFoldOfList, testPointerOnlyStructEqualsFoldOfListAnyLength, testStaticDynamicNodeCollision
+CH02 combineHashes hashes only the first scratch word: KILLED — killed by: testLeafNodeCollision, testPointerOnlyStructEqualsFoldOfList, testPointerOnlyStructEqualsFoldOfListAnyLength, testStaticDynamicNodeCollision, testWordsOneTwoKnownAnswer
+CH03 combineHashes hashes from the second scratch word: KILLED — killed by: testLeafNodeCollision, testPointerOnlyStructEqualsFoldOfList, testPointerOnlyStructEqualsFoldOfListAnyLength, testStaticDynamicNodeCollision, testWordsOneTwoKnownAnswer
+CH04 combineHashes hashes past scratch into the free memory pointer: KILLED — killed by: testCombineHashes, testCombineHashesGas, testCombineHashesNoAlloc, testLeafNodeCollision, testPointerOnlyStructEqualsFoldOfList
+CH05 combineHashes drops the second operand: KILLED — killed by: testLeafNodeCollision, testPointerOnlyStructEqualsFoldOfList, testPointerOnlyStructEqualsFoldOfListAnyLength, testStaticDynamicNodeCollision, testWordsOneTwoKnownAnswer
+CH06 combineHashes hashes through a fresh allocation instead of scratch: KILLED — killed by: testCombineHashesNoAlloc, testCombineHashesTouchesOnlyScratch, testCombineHashesTouchesOnlyScratch, testCombineHashesNoAlloc
+HN01 HASH_NIL is off by one nibble: KILLED — killed by: testEmptyCollision, testPointerOnlyStructEqualsFoldOfList, testPointerOnlyStructEqualsFoldOfListAnyLength, testFoldEmptyIsNilHash, testFoldEqualsPackedConcatFold
+
+== 28/28 killed; survived: 0; no-run: 0; harness errors: 0
+
+[exited with code 0]

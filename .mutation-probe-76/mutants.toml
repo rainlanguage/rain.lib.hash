@@ -1,0 +1,245 @@
+[suite]
+root = "."
+command = ["nix", "develop", "-c", "forge", "test"]
+proof = '(\d+) passed; (\d+) failed'
+fail-pattern = '\[FAIL.*?\] (test[A-Za-z0-9_]+)\('
+timeout-secs = 1800
+
+# ---------------- hashBytes ----------------
+
+[[mutants]]
+name = "HB01 hashBytes hashes the length prefix instead of skipping it"
+file = "src/lib/LibHashNoAlloc.sol"
+target = "hash := keccak256(add(data, 0x20), mload(data))"
+replacement = "hash := keccak256(data, mload(data))"
+
+[[mutants]]
+name = "HB02 hashBytes skips a second word past the length prefix"
+file = "src/lib/LibHashNoAlloc.sol"
+target = "hash := keccak256(add(data, 0x20), mload(data))"
+replacement = "hash := keccak256(add(data, 0x40), mload(data))"
+
+[[mutants]]
+name = "HB03 hashBytes rounds the length up to whole words"
+file = "src/lib/LibHashNoAlloc.sol"
+target = "hash := keccak256(add(data, 0x20), mload(data))"
+replacement = "hash := keccak256(add(data, 0x20), and(add(mload(data), 0x1f), not(0x1f)))"
+
+[[mutants]]
+name = "HB04 hashBytes rounds the length down to whole words"
+file = "src/lib/LibHashNoAlloc.sol"
+target = "hash := keccak256(add(data, 0x20), mload(data))"
+replacement = "hash := keccak256(add(data, 0x20), and(mload(data), not(0x1f)))"
+
+[[mutants]]
+name = "HB05 hashBytes hashes a fixed single word"
+file = "src/lib/LibHashNoAlloc.sol"
+target = "hash := keccak256(add(data, 0x20), mload(data))"
+replacement = "hash := keccak256(add(data, 0x20), 0x20)"
+
+[[mutants]]
+name = "HB06 hashBytes counts the length prefix in the byte count"
+file = "src/lib/LibHashNoAlloc.sol"
+target = "hash := keccak256(add(data, 0x20), mload(data))"
+replacement = "hash := keccak256(add(data, 0x20), add(mload(data), 0x20))"
+
+[[mutants]]
+name = "HB07 hashBytes hashes one byte too many"
+file = "src/lib/LibHashNoAlloc.sol"
+target = "hash := keccak256(add(data, 0x20), mload(data))"
+replacement = "hash := keccak256(add(data, 0x20), add(mload(data), 1))"
+
+[[mutants]]
+name = "HB08 hashBytes hashes one byte too few"
+file = "src/lib/LibHashNoAlloc.sol"
+target = "hash := keccak256(add(data, 0x20), mload(data))"
+replacement = "hash := keccak256(add(data, 0x20), sub(mload(data), 1))"
+
+[[mutants]]
+name = "HB09 hashBytes always hashes no bytes"
+file = "src/lib/LibHashNoAlloc.sol"
+target = "hash := keccak256(add(data, 0x20), mload(data))"
+replacement = "hash := keccak256(0, 0)"
+
+[[mutants]]
+name = "HB10 hashBytes copies to a fresh allocation before hashing"
+file = "src/lib/LibHashNoAlloc.sol"
+target = "hash := keccak256(add(data, 0x20), mload(data))"
+replacement = '''let free := mload(0x40)
+            mcopy(free, add(data, 0x20), mload(data))
+            mstore(0x40, add(free, and(add(mload(data), 0x3f), not(0x1f))))
+            hash := keccak256(free, mload(data))'''
+
+# ---------------- hashWords(bytes32[]) ----------------
+
+[[mutants]]
+name = "HW01 bytes32 hashWords hashes the length prefix instead of skipping it"
+file = "src/lib/LibHashNoAlloc.sol"
+target = '''function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))'''
+replacement = '''function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(words, mul(mload(words), 0x20))'''
+
+[[mutants]]
+name = "HW02 bytes32 hashWords reads the word count as a byte count"
+file = "src/lib/LibHashNoAlloc.sol"
+target = '''function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))'''
+replacement = '''function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), mload(words))'''
+
+[[mutants]]
+name = "HW03 bytes32 hashWords hashes two bytes per word"
+file = "src/lib/LibHashNoAlloc.sol"
+target = '''function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))'''
+replacement = '''function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), mul(mload(words), 0x40))'''
+
+[[mutants]]
+name = "HW04 bytes32 hashWords always hashes exactly one word"
+file = "src/lib/LibHashNoAlloc.sol"
+target = '''function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))'''
+replacement = '''function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), 0x20)'''
+
+[[mutants]]
+name = "HW05 bytes32 hashWords drops the last word"
+file = "src/lib/LibHashNoAlloc.sol"
+target = '''function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))'''
+replacement = '''function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), mul(sub(mload(words), 1), 0x20))'''
+
+[[mutants]]
+name = "HW06 bytes32 hashWords hashes one word past the end"
+file = "src/lib/LibHashNoAlloc.sol"
+target = '''function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))'''
+replacement = '''function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), mul(add(mload(words), 1), 0x20))'''
+
+[[mutants]]
+name = "HW07 bytes32 hashWords copies to a fresh allocation before hashing"
+file = "src/lib/LibHashNoAlloc.sol"
+target = '''function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))'''
+replacement = '''function hashWords(bytes32[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            let free := mload(0x40)
+            mcopy(free, add(words, 0x20), mul(mload(words), 0x20))
+            mstore(0x40, add(free, mul(mload(words), 0x20)))
+            hash := keccak256(free, mul(mload(words), 0x20))'''
+
+# ---------------- hashWords(uint256[]) ----------------
+
+[[mutants]]
+name = "HU01 uint256 hashWords hashes the length prefix instead of skipping it"
+file = "src/lib/LibHashNoAlloc.sol"
+target = '''function hashWords(uint256[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))'''
+replacement = '''function hashWords(uint256[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(words, mul(mload(words), 0x20))'''
+
+[[mutants]]
+name = "HU02 uint256 hashWords reads the word count as a byte count"
+file = "src/lib/LibHashNoAlloc.sol"
+target = '''function hashWords(uint256[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))'''
+replacement = '''function hashWords(uint256[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), mload(words))'''
+
+[[mutants]]
+name = "HU03 uint256 hashWords always hashes exactly one word"
+file = "src/lib/LibHashNoAlloc.sol"
+target = '''function hashWords(uint256[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))'''
+replacement = '''function hashWords(uint256[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), 0x20)'''
+
+[[mutants]]
+name = "HU04 uint256 hashWords copies to a fresh allocation before hashing"
+file = "src/lib/LibHashNoAlloc.sol"
+target = '''function hashWords(uint256[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            hash := keccak256(add(words, 0x20), mul(mload(words), 0x20))'''
+replacement = '''function hashWords(uint256[] memory words) internal pure returns (bytes32 hash) {
+        assembly ("memory-safe") {
+            let free := mload(0x40)
+            mcopy(free, add(words, 0x20), mul(mload(words), 0x20))
+            mstore(0x40, add(free, mul(mload(words), 0x20)))
+            hash := keccak256(free, mul(mload(words), 0x20))'''
+
+# ---------------- combineHashes ----------------
+
+[[mutants]]
+name = "CH01 combineHashes writes the operands in the other order"
+file = "src/lib/LibHashNoAlloc.sol"
+target = '''mstore(0, a)
+            mstore(0x20, b)'''
+replacement = '''mstore(0, b)
+            mstore(0x20, a)'''
+
+[[mutants]]
+name = "CH02 combineHashes hashes only the first scratch word"
+file = "src/lib/LibHashNoAlloc.sol"
+target = "hash := keccak256(0, 0x40)"
+replacement = "hash := keccak256(0, 0x20)"
+
+[[mutants]]
+name = "CH03 combineHashes hashes from the second scratch word"
+file = "src/lib/LibHashNoAlloc.sol"
+target = "hash := keccak256(0, 0x40)"
+replacement = "hash := keccak256(0x20, 0x40)"
+
+[[mutants]]
+name = "CH04 combineHashes hashes past scratch into the free memory pointer"
+file = "src/lib/LibHashNoAlloc.sol"
+target = "hash := keccak256(0, 0x40)"
+replacement = "hash := keccak256(0, 0x60)"
+
+[[mutants]]
+name = "CH05 combineHashes drops the second operand"
+file = "src/lib/LibHashNoAlloc.sol"
+target = "mstore(0x20, b)"
+replacement = "mstore(0x20, a)"
+
+[[mutants]]
+name = "CH06 combineHashes hashes through a fresh allocation instead of scratch"
+file = "src/lib/LibHashNoAlloc.sol"
+target = '''mstore(0, a)
+            mstore(0x20, b)
+            hash := keccak256(0, 0x40)'''
+replacement = '''let free := mload(0x40)
+            mstore(free, a)
+            mstore(add(free, 0x20), b)
+            mstore(0x40, add(free, 0x40))
+            hash := keccak256(free, 0x40)'''
+
+# ---------------- HASH_NIL ----------------
+
+[[mutants]]
+name = "HN01 HASH_NIL is off by one nibble"
+file = "src/lib/LibHashNoAlloc.sol"
+target = "bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;"
+replacement = "bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a471;"

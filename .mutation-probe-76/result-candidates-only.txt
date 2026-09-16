@@ -1,0 +1,34 @@
+baseline: running suite ...
+baseline: green (7 passed)
+HB01 hashBytes hashes the length prefix instead of skipping it: KILLED — killed by: testHashBytesAtWordBoundaryLengths, testEqualFoosDifferByRegionAndAgreeByComposition, testSingletonWordListHashesAsItsBareWord, testEqualFoosDifferByRegionAndAgreeByComposition, testSingletonWordListHashesAsItsBareWord
+HB02 hashBytes skips a second word past the length prefix: KILLED — killed by: testHashBytesAtWordBoundaryLengths, testEqualFoosDifferByRegionAndAgreeByComposition, testSingletonWordListHashesAsItsBareWord, testEqualFoosDifferByRegionAndAgreeByComposition, testSingletonWordListHashesAsItsBareWord
+HB03 hashBytes rounds the length up to whole words: KILLED — killed by: testHashBytesAtWordBoundaryLengths, testEqualFoosDifferByRegionAndAgreeByComposition, testCompositionSeparatesSplitsOfOneString, testEqualFoosDifferByRegionAndAgreeByComposition, testCompositionSeparatesSplitsOfOneString
+HB04 hashBytes rounds the length down to whole words: KILLED — killed by: testHashBytesAtWordBoundaryLengths, testEqualFoosDifferByRegionAndAgreeByComposition, testAbcDefAndAbCdefPackAlikeAndComposeApart, testCompositionSeparatesSplitsOfOneString, testEqualFoosDifferByRegionAndAgreeByComposition
+HB05 hashBytes hashes a fixed single word: KILLED — killed by: testHashBytesAtWordBoundaryLengths, testCompositionSeparatesSplitsOfOneString, testEqualFoosDifferByRegionAndAgreeByComposition, testEqualFoosDifferByRegionAndAgreeByComposition, testCompositionSeparatesSplitsOfOneString
+HB06 hashBytes counts the length prefix in the byte count: KILLED — killed by: testHashBytesAtWordBoundaryLengths, testEqualFoosDifferByRegionAndAgreeByComposition, testSingletonWordListHashesAsItsBareWord, testEqualFoosDifferByRegionAndAgreeByComposition, testSingletonWordListHashesAsItsBareWord
+HB07 hashBytes hashes one byte too many: KILLED — killed by: testHashBytesAtWordBoundaryLengths, testEqualFoosDifferByRegionAndAgreeByComposition, testSingletonWordListHashesAsItsBareWord, testEqualFoosDifferByRegionAndAgreeByComposition, testSingletonWordListHashesAsItsBareWord
+HB08 hashBytes hashes one byte too few: KILLED — killed by: testHashBytesAtWordBoundaryLengths, testCompositionSeparatesSplitsOfOneString, testSingletonWordListHashesAsItsBareWord, testEqualFoosDifferByRegionAndAgreeByComposition, testEqualFoosDifferByRegionAndAgreeByComposition
+HB09 hashBytes always hashes no bytes: KILLED — killed by: testHashBytesAtWordBoundaryLengths, testAbcDefAndAbCdefPackAlikeAndComposeApart, testCompositionSeparatesSplitsOfOneString, testSingletonWordListHashesAsItsBareWord, testEqualFoosDifferByRegionAndAgreeByComposition
+HB10 hashBytes copies to a fresh allocation before hashing: SURVIVED
+HW01 bytes32 hashWords hashes the length prefix instead of skipping it: KILLED — killed by: testHashBytesAtWordBoundaryLengths, testBytes1ArrayHashesAsItsWords, testSingletonWordListHashesAsItsBareWord, testBytes1ArrayHashesAsItsWords, testSingletonWordListHashesAsItsBareWord
+HW02 bytes32 hashWords reads the word count as a byte count: KILLED — killed by: testHashBytesAtWordBoundaryLengths, testSingletonWordListHashesAsItsBareWord, testBytes1ArrayHashesAsItsWords, testBytes1ArrayHashesAsItsWords, testSingletonWordListHashesAsItsBareWord
+HW03 bytes32 hashWords hashes two bytes per word: KILLED — killed by: testHashBytesAtWordBoundaryLengths, testBytes1ArrayHashesAsItsWords, testSingletonWordListHashesAsItsBareWord, testBytes1ArrayHashesAsItsWords, testSingletonWordListHashesAsItsBareWord
+HW04 bytes32 hashWords always hashes exactly one word: KILLED — killed by: testHashBytesAtWordBoundaryLengths, testBytes1ArrayHashesAsItsWords, testBytes1ArrayHashesAsItsWords, testHashBytesAtWordBoundaryLengths
+HW05 bytes32 hashWords drops the last word: KILLED — killed by: testHashBytesAtWordBoundaryLengths, testBytes1ArrayHashesAsItsWords, testSingletonWordListHashesAsItsBareWord, testBytes1ArrayHashesAsItsWords, testSingletonWordListHashesAsItsBareWord
+HW06 bytes32 hashWords hashes one word past the end: KILLED — killed by: testHashBytesAtWordBoundaryLengths, testSingletonWordListHashesAsItsBareWord, testBytes1ArrayHashesAsItsWords, testBytes1ArrayHashesAsItsWords, testSingletonWordListHashesAsItsBareWord
+HW07 bytes32 hashWords copies to a fresh allocation before hashing: SURVIVED
+HU01 uint256 hashWords hashes the length prefix instead of skipping it: KILLED — killed by: testSingletonWordListHashesAsItsBareWord, testEqualFoosDifferByRegionAndAgreeByComposition, testEqualFoosDifferByRegionAndAgreeByComposition, testSingletonWordListHashesAsItsBareWord
+HU02 uint256 hashWords reads the word count as a byte count: KILLED — killed by: testEqualFoosDifferByRegionAndAgreeByComposition, testSingletonWordListHashesAsItsBareWord, testEqualFoosDifferByRegionAndAgreeByComposition, testSingletonWordListHashesAsItsBareWord
+HU03 uint256 hashWords always hashes exactly one word: KILLED — killed by: testEqualFoosDifferByRegionAndAgreeByComposition, testEqualFoosDifferByRegionAndAgreeByComposition
+HU04 uint256 hashWords copies to a fresh allocation before hashing: SURVIVED
+CH01 combineHashes writes the operands in the other order: KILLED — killed by: testEqualFoosDifferByRegionAndAgreeByComposition, testEqualFoosDifferByRegionAndAgreeByComposition
+CH02 combineHashes hashes only the first scratch word: KILLED — killed by: testEqualFoosDifferByRegionAndAgreeByComposition, testSingletonWordListHashesAsItsBareWord, testEqualFoosDifferByRegionAndAgreeByComposition, testSingletonWordListHashesAsItsBareWord
+CH03 combineHashes hashes from the second scratch word: KILLED — killed by: testEqualFoosDifferByRegionAndAgreeByComposition, testEqualFoosDifferByRegionAndAgreeByComposition
+CH04 combineHashes hashes past scratch into the free memory pointer: KILLED — killed by: testEqualFoosDifferByRegionAndAgreeByComposition, testEqualFoosDifferByRegionAndAgreeByComposition
+CH05 combineHashes drops the second operand: KILLED — killed by: testEqualFoosDifferByRegionAndAgreeByComposition, testEqualFoosDifferByRegionAndAgreeByComposition
+CH06 combineHashes hashes through a fresh allocation instead of scratch: SURVIVED
+HN01 HASH_NIL is off by one nibble: SURVIVED
+
+== 23/28 killed; survived: 5; no-run: 0; harness errors: 0
+
+[exited with code 0]

@@ -20,8 +20,11 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 /// to use abi.encode, which includes the lengths disambiguating dynamic data.
 /// Something like `3"abc" + 3"def"` with the length prefixes won't collide with
 /// `2"ab" + 4"cdef"`: within one type tuple `abi.encode` is injective because
-/// `abi.decode` recovers the value. It is not injective across types, which is
-/// the same restriction the composition below carries, and it is not efficient.
+/// `abi.decode` recovers the value. It is not injective across types:
+/// `abi.encode(uint8(1))`, `abi.encode(uint256(1))`, `abi.encode(true)` and
+/// `abi.encode(address(1))` are all the same 32 bytes. That is the same
+/// restriction the composition below carries, and abi encoding is not efficient
+/// either.
 ///
 /// - Abi encoding is a complex algorithm that costs several hundred gas for a
 ///   struct with one or two dynamic typed fields even when those fields are

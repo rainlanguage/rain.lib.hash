@@ -42,7 +42,7 @@
       "testsAfter": 77,
       "coveragePRs": [],
       "filed": [],
-      "notes": "Mutation probe only, no adversarial pass. 28 mutants over every behaviour the library has: the read offset and byte count of hashBytes and of both hashWords overloads, the two scratch writes and the hashed range of combineHashes, the HASH_NIL literal, and the no-allocation promise of all four. All 28 die to the suite as it stands. The seven tests #76 proposes were written and probed against the same 28: between them they kill 23, none of which the suite misses, and they miss the four no-allocation mutants and HASH_NIL. No test added. main moved to 6afa299 after this scan by a README-only commit, so src/ and test/ are byte-identical to the scanned commit."
+      "notes": "Mutation probe only, no adversarial pass. 28 mutants over every behaviour the library has: the read offset and byte count of hashBytes and of both hashWords overloads, the two scratch writes and the hashed range of combineHashes, the HASH_NIL literal, and the no-allocation promise of all four. All 28 die to the suite as it stands. The seven tests #76 proposes were written and probed against the same 28: between them they kill 23, none of which the suite misses, and they miss the four no-allocation mutants and HASH_NIL. No test added. main has since moved to 092293e by a README-only commit and a NatSpec-only commit: test/ is byte-identical to the scanned commit and src/ differs from it only in /// lines, so every mutated line is unchanged."
     }
   }
 ]

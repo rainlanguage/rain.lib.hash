@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity ^0.8.25;
+pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {Foo} from "./lib/LibFooOracle.sol";
-import {LibMemorySnapshot} from "./lib/LibMemorySnapshot.sol";
+import {Foo} from "../../lib/LibFooOracle.sol";
+import {LibMemorySnapshot} from "../../lib/LibMemorySnapshot.sol";
 
 /// A struct whose second member is a struct: `inner` is one word of the
 /// `Outer`, the pointer to a `Foo`.

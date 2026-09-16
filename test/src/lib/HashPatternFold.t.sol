@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity ^0.8.25;
+pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {LibHashNoAlloc, HASH_NIL} from "../src/LibHashNoAlloc.sol";
-import {Foo, LibFooOracle} from "./lib/LibFooOracle.sol";
+import {LibHashNoAlloc, HASH_NIL} from "../../../src/lib/LibHashNoAlloc.sol";
+import {Foo, LibFooOracle} from "../../lib/LibFooOracle.sol";
 
 /// The `Foo[]` fold README.md "Handling pointers" and "Nil hash prefix"
 /// describe: an accumulator seeded with the nil hash, into which each item's

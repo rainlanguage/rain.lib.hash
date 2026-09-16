@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity ^0.8.25;
+pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {Foo, LibFooOracle} from "./lib/LibFooOracle.sol";
-import {LibMemorySnapshot} from "./lib/LibMemorySnapshot.sol";
+import {Foo, LibFooOracle} from "../../lib/LibFooOracle.sol";
+import {LibMemorySnapshot} from "../../lib/LibMemorySnapshot.sol";
 
 /// The assembly of README.md "The pattern", which states the pattern in prose
 /// and points here for the code. Each example is checked against a plain

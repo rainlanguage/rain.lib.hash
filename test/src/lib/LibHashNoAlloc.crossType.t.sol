@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity ^0.8.25;
+pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {LibHashNoAlloc, HASH_NIL} from "../src/LibHashNoAlloc.sol";
-import {LibHashSlow, HASH_WORDS_ONE_TWO} from "./LibHashSlow.sol";
+import {LibHashNoAlloc, HASH_NIL} from "../../../src/lib/LibHashNoAlloc.sol";
+import {LibHashSlow, HASH_WORDS_ONE_TWO} from "../../lib/LibHashSlow.sol";
 
 struct TwoBytes {
     bytes d1;

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity ^0.8.25;
+pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {LibHashNoAlloc, HASH_NIL} from "../src/LibHashNoAlloc.sol";
-import {LibHashSlow, HASH_ABC, HASH_WORDS_ONE_TWO} from "./LibHashSlow.sol";
-import {LibMemorySnapshot} from "./lib/LibMemorySnapshot.sol";
+import {LibHashNoAlloc, HASH_NIL} from "../../../src/lib/LibHashNoAlloc.sol";
+import {LibHashSlow, HASH_ABC, HASH_WORDS_ONE_TWO} from "../../lib/LibHashSlow.sol";
+import {LibMemorySnapshot} from "../../lib/LibMemorySnapshot.sol";
 
 /// @dev Static gas of one KECCAK256 opcode.
 uint256 constant KECCAK256_BASE_GAS = 30;

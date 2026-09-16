@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity ^0.8.25;
+pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {LibHashNoAlloc} from "../src/LibHashNoAlloc.sol";
-import {LibHashSlow} from "./LibHashSlow.sol";
+import {LibHashNoAlloc} from "../../../src/lib/LibHashNoAlloc.sol";
+import {LibHashSlow} from "../../lib/LibHashSlow.sol";
 
 /// Pins the "no alloc" promise of every LibHashNoAlloc function as a memory
 /// property rather than a digest: canaries planted at the free memory pointer

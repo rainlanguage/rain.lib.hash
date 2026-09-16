@@ -215,11 +215,11 @@
         "solc": "solc"
       },
       "locked": {
-        "lastModified": 1789032344,
-        "narHash": "sha256-AghL8v91dVEt7vldiF1/yIuaWxev740TVPSRMN6c8l0=",
+        "lastModified": 1789031681,
+        "narHash": "sha256-DVxxjMYfAzVh+a4DfCO2frKUS8B4LGdlu9e3ubhIIRo=",
         "owner": "rainlanguage",
         "repo": "rainix",
-        "rev": "3aa1188f490b2cfd78f9a87c7a41afe29bf3b48a",
+        "rev": "8657b83b68f41957ab85da91132c3f652c1f32c0",
         "type": "github"
       },
       "original": {

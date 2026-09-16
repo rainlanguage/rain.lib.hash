@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {LibMemorySnapshot} from "./lib/LibMemorySnapshot.sol";
+import {LibMemorySnapshot} from "../../lib/LibMemorySnapshot.sol";
 
 /// The struct the LibHashNoAlloc NatSpec hashes in its example: three static
 /// members, the last of them sub-word.

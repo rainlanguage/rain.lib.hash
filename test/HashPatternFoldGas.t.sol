@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {Test} from "forge-std-1.16.2/src/Test.sol";
 import {HASH_NIL} from "../src/LibHashNoAlloc.sol";
 import {Foo} from "./lib/LibFooOracle.sol";
 
@@ -48,8 +48,10 @@ contract HashPatternFoldGasTest is Test {
             }
             bytes memory d = new bytes(size);
             for (uint256 j = 0; j < size; j++) {
+                // forge-lint: disable-next-line(unsafe-typecast)
                 d[j] = bytes1(uint8(i + j + 1));
             }
+            // forge-lint: disable-next-line(unsafe-typecast)
             list[i] = Foo(i + 1, address(uint160(i + 2)), c, d);
         }
         return list;

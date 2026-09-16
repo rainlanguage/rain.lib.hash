@@ -434,12 +434,12 @@ per `Foo` above plus one to fold it into the accumulator) and only 6 gas per
 word hashed, whereas `abi.encode` copies every word of every element and writes
 the head/tail offsets and lengths before hashing once. Measured with Foundry
 under this repo's compiler settings, and pinned by
-`test/HashPatternFoldGas.t.sol`: with `c` and `d` empty the fold already costs
-slightly less than encoding; with a handful of words in each it costs about
-half; with a kilobyte of words per element it costs about a fifth, and the
+`test/src/lib/HashPatternFoldGas.t.sol`: with `c` and `d` empty the fold already
+costs slightly less than encoding; with a handful of words in each it costs
+about half; with a kilobyte of words per element it costs about a fifth, and the
 fraction keeps falling as the word lists grow; with a kilobyte of `bytes` per
-element it still costs about two thirds, because encoding copies `bytes` in
-bulk but copies a word list one word at a time.
+element it still costs about two thirds, because encoding copies `bytes` in bulk
+but copies a word list one word at a time.
 
 ##### Nil hash prefix
 

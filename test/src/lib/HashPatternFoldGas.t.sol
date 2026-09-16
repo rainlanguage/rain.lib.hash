@@ -3,8 +3,8 @@
 pragma solidity ^0.8.25;
 
 import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {HASH_NIL} from "../src/LibHashNoAlloc.sol";
-import {Foo} from "./lib/LibFooOracle.sol";
+import {HASH_NIL} from "../../../src/lib/LibHashNoAlloc.sol";
+import {Foo} from "../../lib/LibFooOracle.sol";
 
 /// The gas bands asserted here are the ones README.md "Handling pointers"
 /// states.

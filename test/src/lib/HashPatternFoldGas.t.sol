@@ -6,8 +6,10 @@ import {Test} from "forge-std-1.16.2/src/Test.sol";
 import {HASH_NIL} from "../../../src/lib/LibHashNoAlloc.sol";
 import {Foo} from "../../lib/LibFooOracle.sol";
 
-/// The gas bands asserted here are the ones README.md "Handling pointers"
-/// states.
+/// Each band asserted here is a `gasleft()` delta of the fold against
+/// `keccak256(abi.encode(foos))` over the same list, in the regime the test
+/// name gives. A compiler or EVM change that moves a measurement out of its
+/// band fails here, and the documented band is corrected with it.
 contract HashPatternFoldGasTest is Test {
     /// The README's assembly rather than `LibFooOracle.hashFoo`: the oracle is
     /// built from `abi.encode`, so it allocates, which is the cost this file
@@ -79,6 +81,8 @@ contract HashPatternFoldGasTest is Test {
         assertLe(gasFold * 100, gasEncode * high);
     }
 
+    /// Strictly less, and only slightly: a band that had swung the other way
+    /// would fail here too.
     function testFoldCostsSlightlyLessForEmptyElements() public view {
         (uint256 gasFold, uint256 gasEncode) = this.measure(4, 0, 0);
         assertLt(gasFold, gasEncode);

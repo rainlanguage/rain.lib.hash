@@ -610,9 +610,10 @@ covers.
 
 Install `nix` with flakes enabled - https://nixos.org/download.html.
 
-`nix develop` drops into rainix's Solidity-only `sol-shell`, the same kind of
-shell CI runs in. Please ONLY use the nix version of `foundry` for development,
-to ensure versions are all compatible.
+`nix develop` drops into rainix's Solidity-only `sol-shell`. `flake.lock` pins
+`rainix` to the revision CI's reusable workflow hard-codes as `RAINIX_SHA`, so
+the local shell is the shell CI runs in. Please ONLY use the nix version of
+`foundry` for development, to ensure versions are all compatible.
 
 ```
 nix develop
@@ -630,14 +631,16 @@ then these, each in `sol-shell`:
 ```
 slither .
 forge fmt --check
+forge lint -D warnings
+pre-commit run --all-files
 rainix-sol-single-contract
 reuse lint
 forge test -vvv
 ```
 
-Run them locally before pushing. CI pins its own rainix revision inside the
-reusable workflow, so `nix flake update rainix` is what moves the local shell
-onto rainix `main`.
+Run them locally before pushing. `nix flake update rainix` moves the lock off
+`RAINIX_SHA` and onto rainix `main`, so only run it to follow a `RAINIX_SHA`
+bump.
 
 ## Legal stuff
 

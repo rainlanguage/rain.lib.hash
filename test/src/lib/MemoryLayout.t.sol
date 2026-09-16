@@ -476,4 +476,25 @@ contract MemoryLayoutTest is Test {
             assertEq(stringWord, bytesWord);
         }
     }
+
+    /// "ALWAYS 4 words" whatever the members hold: the region is 0x80 for
+    /// populated `c` and `d` as much as for the empty ones above.
+    function testFooIsFourWordsWithPopulatedMembers(
+        uint256 first,
+        address second,
+        uint256[] memory words,
+        bytes memory data
+    ) public pure {
+        // words and data are already allocated, so the struct is the only
+        // allocation between the two free memory pointer reads.
+        uint256 fmpBefore = LibMemorySnapshot.freeMemoryPointer();
+        Foo memory foo = Foo(first, second, words, data);
+        uint256 fmpAfter = LibMemorySnapshot.freeMemoryPointer();
+        uint256 ptr;
+        assembly ("memory-safe") {
+            ptr := foo
+        }
+        assertEq(ptr, fmpBefore);
+        assertEq(fmpAfter - ptr, 0x80);
+    }
 }

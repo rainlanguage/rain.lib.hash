@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.16.2/src/Test.sol";
 import {Foo, LibFooOracle} from "../../lib/LibFooOracle.sol";
 import {LibMemorySnapshot} from "../../lib/LibMemorySnapshot.sol";
+import {LibHashNoAlloc} from "../../../src/lib/LibHashNoAlloc.sol";
 
 /// The assembly of README.md "The pattern", which states the pattern in prose
 /// and points here for the code. Each example is checked against a plain
@@ -183,5 +184,53 @@ contract HashPatternTest is Test {
         }
 
         assertEq(hash, LibFooOracle.hashFoo(foo));
+    }
+
+    /// The README "Handling pointers" steps A to E over one `Foo`, built from
+    /// the library's primitives rather than from the builtin oracle.
+    function hashFooWithLibrary(Foo memory foo) internal pure returns (bytes32) {
+        bytes32 hashA = LibHashNoAlloc.hashBytes(abi.encode(foo.a, foo.b));
+        bytes32 hashB = LibHashNoAlloc.hashWords(foo.c);
+        bytes32 hashC = LibHashNoAlloc.combineHashes(hashA, hashB);
+        bytes32 hashD = LibHashNoAlloc.hashBytes(foo.d);
+        return LibHashNoAlloc.combineHashes(hashC, hashD);
+    }
+
+    /// README "Handling pointers": a pointer "is not even deterministic", so
+    /// two `Foo`s with equal members at different addresses hash apart as a raw
+    /// region, which holds their pointer words, and together under the steps
+    /// that follow the pointers.
+    function testEqualFoosDifferByRegionAndAgreeByComposition(
+        uint256 a,
+        address b,
+        uint256[] memory c,
+        bytes memory d
+    ) public pure {
+        Foo memory first = Foo(a, b, c, d);
+        uint256[] memory copiedWords = new uint256[](c.length);
+        for (uint256 index = 0; index < c.length; index++) {
+            copiedWords[index] = c[index];
+        }
+        Foo memory second = Foo(a, b, copiedWords, bytes.concat(d));
+
+        bytes32 firstRegion;
+        bytes32 secondRegion;
+        assembly ("memory-safe") {
+            firstRegion := keccak256(first, 0x80)
+            secondRegion := keccak256(second, 0x80)
+        }
+        assertNotEq(firstRegion, secondRegion);
+        assertEq(hashFooWithLibrary(first), hashFooWithLibrary(second));
+        assertEq(hashFooWithLibrary(first), LibFooOracle.hashFoo(first));
+    }
+
+    /// README "single byte values `bytes1[]`" are a word list: the `length`
+    /// left-aligned words after the prefix are what the library hashes.
+    function testBytes1ArrayHashesAsItsWords(bytes1[] memory singleBytes) public pure {
+        bytes32[] memory words;
+        assembly ("memory-safe") {
+            words := singleBytes
+        }
+        assertEq(LibHashNoAlloc.hashWords(words), keccak256(abi.encodePacked(singleBytes)));
     }
 }

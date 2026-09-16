@@ -148,4 +148,49 @@ contract LibHashNoAllocCrossTypeTest is Test {
             assertEq(walked, HASH_NIL);
         }
     }
+
+    /// `combineHashes` over the `hashBytes` of each side of a split.
+    function composeSplit(bytes memory left, bytes memory right) internal pure returns (bytes32) {
+        return LibHashNoAlloc.combineHashes(LibHashNoAlloc.hashBytes(left), LibHashNoAlloc.hashBytes(right));
+    }
+
+    /// The NatSpec's motivating example: `"abc" + "def"` and `"ab" + "cdef"`
+    /// pack to the same bytes, and the composition tells them apart.
+    function testAbcDefAndAbCdefPackAlikeAndComposeApart() public pure {
+        assertEq(abi.encodePacked(bytes("abc"), bytes("def")), abi.encodePacked(bytes("ab"), bytes("cdef")));
+        assertNotEq(composeSplit(bytes("abc"), bytes("def")), composeSplit(bytes("ab"), bytes("cdef")));
+    }
+
+    /// The same for every pair of split points of one byte string, over the
+    /// first 8 bytes so every pair is reached.
+    function testCompositionSeparatesSplitsOfOneString(bytes calldata whole) public pure {
+        uint256 length = whole.length < 8 ? whole.length : 8;
+        for (uint256 firstCut = 0; firstCut <= length; firstCut++) {
+            for (uint256 secondCut = firstCut + 1; secondCut <= length; secondCut++) {
+                assertEq(
+                    abi.encodePacked(whole[:firstCut], whole[firstCut:length]),
+                    abi.encodePacked(whole[:secondCut], whole[secondCut:length])
+                );
+                assertNotEq(
+                    composeSplit(whole[:firstCut], whole[firstCut:length]),
+                    composeSplit(whole[:secondCut], whole[secondCut:length])
+                );
+            }
+        }
+    }
+
+    /// A one-word list hashes to the bare word's hash through every entry
+    /// point, unlike the seeded fold where a one-item list is
+    /// `combineHashes(HASH_NIL, hash(item))`.
+    function testSingletonWordListHashesAsItsBareWord(bytes32 word) public pure {
+        bytes32[] memory words = new bytes32[](1);
+        words[0] = word;
+        uint256[] memory uints = new uint256[](1);
+        uints[0] = uint256(word);
+        bytes32 expected = keccak256(abi.encodePacked(word));
+        assertEq(LibHashNoAlloc.hashWords(words), expected);
+        assertEq(LibHashNoAlloc.hashWords(uints), expected);
+        assertEq(LibHashNoAlloc.hashBytes(abi.encodePacked(word)), expected);
+        assertNotEq(expected, LibHashNoAlloc.combineHashes(HASH_NIL, expected));
+    }
 }

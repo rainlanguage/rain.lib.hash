@@ -270,4 +270,31 @@ contract LibHashNoAllocTest is Test {
         uint256 gasSlow = gasBefore - gasleft();
         assertNoAllocCheaperThanSlow(hash, gasNoAlloc, hashSlow, gasSlow, 0x40);
     }
+
+    /// The byte lengths either side of a word boundary, reached without relying
+    /// on the fuzzer: `hashBytes` is `keccak256` of the bytes at every one, and
+    /// equals `hashWords` over the same bytes at whole-word lengths.
+    function testHashBytesAtWordBoundaryLengths() public pure {
+        uint256[6] memory lengths = [uint256(0), 1, 31, 32, 33, 64];
+        for (uint256 lengthIndex = 0; lengthIndex < lengths.length; lengthIndex++) {
+            uint256 length = lengths[lengthIndex];
+            bytes memory data = new bytes(length);
+            for (uint256 byteIndex = 0; byteIndex < length; byteIndex++) {
+                data[byteIndex] = bytes1(uint8(byteIndex + 1));
+            }
+            assertEq(LibHashNoAlloc.hashBytes(data), keccak256(data));
+
+            if (length % 0x20 == 0) {
+                bytes32[] memory words = new bytes32[](length / 0x20);
+                for (uint256 wordIndex = 0; wordIndex < words.length; wordIndex++) {
+                    bytes32 value;
+                    assembly ("memory-safe") {
+                        value := mload(add(add(data, 0x20), mul(wordIndex, 0x20)))
+                    }
+                    words[wordIndex] = value;
+                }
+                assertEq(LibHashNoAlloc.hashWords(words), keccak256(data));
+            }
+        }
+    }
 }

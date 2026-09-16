@@ -33,43 +33,38 @@ contract HashPatternFoldTest is Test {
         return expected;
     }
 
-    /// The first `n` items of `pool` as a `Foo[]`.
-    function take(Foo[4] memory pool, uint256 n) internal pure returns (Foo[] memory) {
-        Foo[] memory foos = new Foo[](n);
-        for (uint256 i = 0; i < n; i++) {
+    function take(Foo[4] memory pool, uint256 count) internal pure returns (Foo[] memory) {
+        Foo[] memory foos = new Foo[](count);
+        for (uint256 i = 0; i < count; i++) {
             foos[i] = pool[i];
         }
         return foos;
     }
 
-    /// The README's step-by-step letters over `foos_[0]` and `foos_[1]`: N is
-    /// the nil hash, A the hash of `foos_[0]`, B the hash of N then A, C the
-    /// hash of `foos_[1]`, D the hash of B then C. B is the fold of the first
-    /// item alone and D the fold of both.
     function testFoldPrefixIsStepwiseCombine(Foo memory foo0, Foo memory foo1) public pure {
         Foo[] memory foos = new Foo[](2);
         foos[0] = foo0;
         foos[1] = foo1;
 
-        bytes32 n = HASH_NIL;
-        bytes32 a = LibFooOracle.hashFoo(foos[0]);
-        bytes32 b = LibHashNoAlloc.combineHashes(n, a);
-        bytes32 c = LibFooOracle.hashFoo(foos[1]);
-        bytes32 d = LibHashNoAlloc.combineHashes(b, c);
+        bytes32 nilHash = HASH_NIL;
+        bytes32 hashFoo0 = LibFooOracle.hashFoo(foos[0]);
+        bytes32 foldOne = LibHashNoAlloc.combineHashes(nilHash, hashFoo0);
+        bytes32 hashFoo1 = LibFooOracle.hashFoo(foos[1]);
+        bytes32 foldTwo = LibHashNoAlloc.combineHashes(foldOne, hashFoo1);
 
         Foo[] memory first = new Foo[](1);
         first[0] = foo0;
-        assertEq(b, foldOracle(first));
-        assertEq(b, foldPattern(first));
-        assertEq(d, foldOracle(foos));
-        assertEq(d, foldPattern(foos));
+        assertEq(foldOne, foldOracle(first));
+        assertEq(foldOne, foldPattern(first));
+        assertEq(foldTwo, foldOracle(foos));
+        assertEq(foldTwo, foldPattern(foos));
     }
 
     /// Every length from 0 to 4: the scratch-space fold equals the builtin
     /// fold.
     function testFoldEqualsPackedConcatFold(Foo[4] memory pool) public pure {
-        for (uint256 n = 0; n <= 4; n++) {
-            Foo[] memory foos = take(pool, n);
+        for (uint256 count = 0; count <= 4; count++) {
+            Foo[] memory foos = take(pool, count);
             assertEq(foldPattern(foos), foldOracle(foos));
         }
     }
@@ -82,14 +77,12 @@ contract HashPatternFoldTest is Test {
         assertEq(foldPattern(foos), HASH_NIL);
     }
 
-    /// README "Nil hash prefix": `[x]` folds to `hash(nil + hash(x))`, which
-    /// is not `hash(x)`.
-    function testFoldSingletonIsNotItem(Foo memory x) public pure {
+    function testFoldSingletonIsNotItem(Foo memory item) public pure {
         Foo[] memory foos = new Foo[](1);
-        foos[0] = x;
-        bytes32 hashX = LibFooOracle.hashFoo(x);
+        foos[0] = item;
+        bytes32 hashItem = LibFooOracle.hashFoo(item);
         bytes32 folded = foldPattern(foos);
-        assertEq(folded, keccak256(abi.encodePacked(HASH_NIL, hashX)));
-        assertNotEq(folded, hashX);
+        assertEq(folded, keccak256(abi.encodePacked(HASH_NIL, hashItem)));
+        assertNotEq(folded, hashItem);
     }
 }

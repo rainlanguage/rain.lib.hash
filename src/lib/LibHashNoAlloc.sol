@@ -62,17 +62,17 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 /// matters.
 ///
 /// ```
-/// struct Foo {
+/// struct Header {
 ///   uint256 a;
 ///   address b;
 ///   uint32 c;
 /// }
 /// ```
-/// The simplest way to hash `Foo` is to just hash it (crazy, i know!).
+/// The simplest way to hash `Header` is to just hash it (crazy, i know!).
 ///
 /// ```
 /// assembly ("memory-safe") {
-///   hash := keccak256(foo, 0x60)
+///   hash := keccak256(header, 0x60)
 /// }
 /// ```
 /// Every struct field is 0x20 bytes in memory so 3 fields = 0x60 bytes to hash
@@ -81,8 +81,9 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 /// pointer, so hashing the struct region hashes the pointer and not the data it
 /// points to; fold such a field in by hashing the data it points to and
 /// combining that hash with the hash of the words around it. This costs one
-/// `keccak256` opcode plus a few stack operations. `keccak256(abi.encode(foo))`
-/// first allocates a fresh 3-word buffer, copies the three fields into it and
+/// `keccak256` opcode plus a few stack operations.
+/// `keccak256(abi.encode(header))` first allocates a fresh `bytes` buffer, a
+/// length word plus the three member words, copies the three fields into it and
 /// bumps the free memory pointer, then pays the same hash; the encoding step
 /// alone costs more gas than the whole in-place hash.
 ///

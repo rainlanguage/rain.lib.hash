@@ -33,7 +33,7 @@ bytes32 constant HASH_NIL = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7b
 /// - Abi encoding can't easily be reproduced offchain without specialised tools,
 ///   it's not simply a matter of length prefixing some byte string and hashing
 ///   with keccak256, the heads and tails all need to be produced recursively
-///   https://docs.soliditylang.org/en/develop/abi-spec.html#formal-specification-of-the-encoding
+///   https://docs.soliditylang.org/en/stable/abi-spec.html#formal-specification-of-the-encoding
 ///
 /// Consider that `hash(hash("abc") + hash("def"))` won't collide with
 /// `hash(hash("ab") + hash("cdef"))`. Convincing ourselves this holds for all

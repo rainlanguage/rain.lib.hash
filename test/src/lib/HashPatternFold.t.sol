@@ -10,8 +10,10 @@ import {Foo, LibFooOracle} from "../../lib/LibFooOracle.sol";
 /// describe: an accumulator seeded with the nil hash, into which each item's
 /// hash is combined by writing the pair to scratch space and hashing it. The
 /// oracle for every assertion is built from `keccak256`, `abi.encode` and
-/// `abi.encodePacked` only; `LibHashNoAlloc.combineHashes` stands in for
-/// "write both to scratch and hash" on the side under test.
+/// `abi.encodePacked` only, its seed included, so the seed is checked against
+/// `HASH_NIL` rather than shared with it. The side under test is
+/// `LibHashNoAlloc.combineHashes` standing in for "write both to scratch and
+/// hash", or the hand-written Yul below for the whole fold.
 contract HashPatternFoldTest is Test {
     /// The README fold: start from the nil hash, then for each item write
     /// the accumulator and the item's hash to scratch and hash the pair.
@@ -26,7 +28,7 @@ contract HashPatternFoldTest is Test {
     /// The same fold with builtins only: the pair in scratch is the packed
     /// concatenation of the accumulator then the item's hash.
     function foldOracle(Foo[] memory foos) internal pure returns (bytes32) {
-        bytes32 expected = HASH_NIL;
+        bytes32 expected = keccak256("");
         for (uint256 i = 0; i < foos.length; i++) {
             expected = keccak256(abi.encodePacked(expected, LibFooOracle.hashFoo(foos[i])));
         }
@@ -74,7 +76,6 @@ contract HashPatternFoldTest is Test {
     function testFoldEmptyIsNilHash() public pure {
         Foo[] memory foos = new Foo[](0);
         assertEq(foldPattern(foos), keccak256(""));
-        assertEq(foldPattern(foos), HASH_NIL);
     }
 
     function testFoldSingletonIsNotItem(Foo memory item) public pure {
@@ -82,7 +83,40 @@ contract HashPatternFoldTest is Test {
         foos[0] = item;
         bytes32 hashItem = LibFooOracle.hashFoo(item);
         bytes32 folded = foldPattern(foos);
-        assertEq(folded, keccak256(abi.encodePacked(HASH_NIL, hashItem)));
+        assertEq(folded, keccak256(abi.encodePacked(keccak256(""), hashItem)));
         assertNotEq(folded, hashItem);
+    }
+
+    /// The pattern side here shares no code with the oracle, so a wrong item
+    /// hash, dereference offset or scratch clobber between the item hash and
+    /// the accumulator write fails here.
+    function testYulFoldMatchesBuiltins(Foo[4] memory pool) public pure {
+        for (uint256 count = 0; count <= 4; count++) {
+            Foo[] memory foos = take(pool, count);
+            bytes32 acc;
+            assembly ("memory-safe") {
+                acc := keccak256(0, 0)
+                for { let i := 0 } lt(i, mload(foos)) { i := add(i, 1) } {
+                    let foo_ := mload(add(foos, mul(add(i, 1), 0x20)))
+
+                    mstore(0, keccak256(foo_, 0x40))
+
+                    let deref_ := mload(add(foo_, 0x40))
+                    mstore(0x20, keccak256(add(deref_, 0x20), mul(mload(deref_), 0x20)))
+
+                    mstore(0, keccak256(0, 0x40))
+
+                    deref_ := mload(add(foo_, 0x60))
+                    mstore(0x20, keccak256(add(deref_, 0x20), mload(deref_)))
+
+                    let e := keccak256(0, 0x40)
+
+                    mstore(0, acc)
+                    mstore(0x20, e)
+                    acc := keccak256(0, 0x40)
+                }
+            }
+            assertEq(acc, foldOracle(foos));
+        }
     }
 }

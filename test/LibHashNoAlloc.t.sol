@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {Test} from "forge-std-1.16.2/src/Test.sol";
 import {LibHashNoAlloc, HASH_NIL} from "../src/LibHashNoAlloc.sol";
 import {LibHashSlow, HASH_ABC, HASH_WORDS_ONE_TWO} from "./LibHashSlow.sol";
 import {LibMemorySnapshot} from "./lib/LibMemorySnapshot.sol";
@@ -52,8 +52,8 @@ contract LibHashNoAllocTest is Test {
         assertEq(HASH_WORDS_ONE_TWO, keccak256(abi.encodePacked(uint256(1), uint256(2))));
     }
 
-    function testHashBytes(bytes memory bs) public pure {
-        assertEq(LibHashNoAlloc.hashBytes(bs), LibHashSlow.hashBytesSlow(bs));
+    function testHashBytes(bytes memory data) public pure {
+        assertEq(LibHashNoAlloc.hashBytes(data), LibHashSlow.hashBytesSlow(data));
     }
 
     function testHashBytesNoAlloc() public pure {
